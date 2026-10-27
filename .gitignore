@@ -25,3 +25,5 @@ apps/web/blob-report/
 Thumbs.db
 .vscode/*
 !.vscode/extensions.json
+
+.vercel
