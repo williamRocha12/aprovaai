@@ -1,0 +1,27 @@
+node_modules/
+dist/
+.next/
+out/
+coverage/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# Segredos
+.env
+.env.*
+!.env.example
+
+# Arquivos enviados em dev (storage local)
+storage/
+
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/blob-report/
+
+# SO / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
