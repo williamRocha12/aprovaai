@@ -80,7 +80,8 @@ Feito:
 - Monorepo pnpm + Turborepo, TS strict, ESLint, Prettier, `.env.example`, Docker Compose para infra local (Postgres, Mailpit).
 - Hospedagem 100% Vercel (ADR-009): API Fastify embutida em `/api/[...path]`, migrations + seed no `vercel-build`,
   config com padrões da Vercel (`x-real-ip`, URL de preview), Neon com `prepare: false`. Guia em docs/deploy.md.
-  Ainda **não foi feito deploy real**: o projeto Vercel/Neon/Resend precisa ser criado pelo dono da conta.
+  **Em produção:** https://aprovaai-nine.vercel.app (projeto Vercel `aprovaai`, banco Neon `aprovaai-db` em gru1).
+  Pendente: e-mail (Resend) — sem ele o cadastro não envia o link de verificação.
 - Schema + migration `0000_auth_foundation`: users, sessions, accounts, verifications, rate_limits, login_attempts, user_profiles, consents, audit_logs, feature_flags.
 - Auth completa via Better Auth: cadastro com aceite de termos (consentimento versionado), verificação de e-mail obrigatória,
   login/logout, sair de todos os dispositivos, recuperação de senha (token único, 30 min, derruba sessões), troca de senha.

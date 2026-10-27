@@ -15,6 +15,15 @@ flowchart LR
   CRON[Vercel Cron<br/>Etapas G/H] -->|CRON_SECRET| FN
 ```
 
+## Estado atual (2026-10-27)
+
+- Projeto Vercel `aprovaai` (Root Directory `apps/web`, Node 24, Git em `main`): **https://aprovaai-nine.vercel.app**.
+  O domínio `aprovaai.vercel.app` pertence a outro projeto; não é este.
+- Banco Neon `aprovaai-db` (gru1) conectado em Production, Preview e Development: os previews usam o mesmo banco
+  da produção até ativar branch por preview.
+- `BETTER_AUTH_SECRET` definido em Production e Preview.
+- **Pendente:** Resend (`EMAIL_PROVIDER`, `RESEND_API_KEY`, `EMAIL_FROM`).
+
 ## 1. Banco (Neon pelo Marketplace)
 
 1. No painel da Vercel: **Storage → Create Database → Neon**. Escolha a região **São Paulo (sa-east-1)**,

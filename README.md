@@ -102,5 +102,6 @@ Estado atual: **Etapa B (fundação) concluída**.
 
 **Limitações conhecidas:** o motor do ciclo, o catálogo e as questões ainda não existem (Etapas C e D). O texto de termos e
 privacidade é placeholder para revisão jurídica. O hardening de produção (RLS, CSP com nonce, rate limit compartilhado) está na Etapa I.
-O deploy na Vercel está preparado e documentado, mas ainda não foi executado.
+Em produção: **https://aprovaai-nine.vercel.app**. O envio de e-mail (Resend) ainda não está configurado, então o cadastro
+em produção não recebe o link de verificação.
 Lista completa em [docs/backlog.md](docs/backlog.md).
