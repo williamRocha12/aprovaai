@@ -1,0 +1,31 @@
+# Infraestrutura de desenvolvimento local. A aplicação roda com `pnpm dev` (web + API embutida em /api).
+# Em produção tudo fica na Vercel (ver docs/deploy.md); o Postgres de produção é o Neon.
+#   docker compose up -d
+name: aprovaai
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: aprovaai
+      POSTGRES_PASSWORD: aprovaai
+      POSTGRES_DB: aprovaai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aprovaai -d aprovaai"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Interface web: http://localhost:8025
+
+volumes:
+  pgdata:
