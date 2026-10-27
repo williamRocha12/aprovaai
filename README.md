@@ -1,8 +1,6 @@
 # AprovaAI
 
-<!-- Troque SEU-USUARIO pelo dono do repositório no GitHub depois do primeiro push. -->
-
-[![CI](https://github.com/SEU-USUARIO/aprovaai/actions/workflows/ci.yml/badge.svg)](https://github.com/SEU-USUARIO/aprovaai/actions/workflows/ci.yml)
+[![CI](https://github.com/williamRocha12/aprovaai/actions/workflows/ci.yml/badge.svg)](https://github.com/williamRocha12/aprovaai/actions/workflows/ci.yml)
 
 Plataforma de preparação para concursos públicos que responde, todos os dias: **"o que eu devo estudar agora, e por quê?"**
 
