@@ -14,7 +14,12 @@ import { id } from "./_shared";
 import { users } from "./auth";
 import { questions } from "./questions";
 
-export const aiFeature = pgEnum("ai_feature", ["notice_extract", "question_classify", "question_explain"]);
+export const aiFeature = pgEnum("ai_feature", [
+  "notice_extract",
+  "question_classify",
+  "question_explain",
+  "plan_summary",
+]);
 export const aiStatus = pgEnum("ai_status", ["ok", "error", "refused", "invalid_output"]);
 
 /** Uma linha por chamada ao provedor. Não guarda conteúdo (nem prompt nem resposta): só metadados de uso. */

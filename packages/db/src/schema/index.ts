@@ -5,3 +5,5 @@ export * from "./plan";
 export * from "./questions";
 export * from "./mock-exams";
 export * from "./ai";
+export * from "./jobs";
+export * from "./past-exams";

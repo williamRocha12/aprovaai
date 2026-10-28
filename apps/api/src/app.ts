@@ -9,19 +9,24 @@ import type { AiProvider } from "./lib/ai/provider";
 import type { AppConfig } from "./config";
 import { createEmailProvider } from "./lib/email/providers";
 import type { EmailProvider } from "./lib/email/types";
+import { runJobs, type JobRow } from "./lib/jobs";
 import { buildLoggerOptions } from "./lib/logger";
 import { registerAdminPlatformRoutes } from "./modules/admin/platform-routes";
-import { registerAiRoutes } from "./modules/ai/routes";
+import { registerAiPlanSummaryRoute, registerAiRoutes } from "./modules/ai/routes";
 import { AiService } from "./modules/ai/service";
 import { registerAdminUserRoutes } from "./modules/admin/users-routes";
 import { registerAuthRoutes } from "./modules/auth/routes";
 import { registerCatalogRoutes } from "./modules/catalog/routes";
 import { registerHealthRoutes } from "./modules/health/routes";
+import { maintenanceCleanup } from "./modules/jobs/maintenance";
+import { registerJobRoutes } from "./modules/jobs/routes";
 import { registerMeRoutes } from "./modules/me/routes";
 import { registerMockExamRoutes } from "./modules/mock-exams/routes";
 import { MockExamsService } from "./modules/mock-exams/service";
 import { registerModerationRoutes } from "./modules/moderation/routes";
 import { DashboardService } from "./modules/dashboard/service";
+import { registerPastExamRoutes } from "./modules/past-exams/routes";
+import { PastExamsService } from "./modules/past-exams/service";
 import { registerPlanRoutes } from "./modules/plan/routes";
 import { PlanService } from "./modules/plan/service";
 import { registerPrivacyRoutes } from "./modules/privacy/routes";
@@ -71,6 +76,7 @@ export async function buildApp({ config, db, email, ai }: AppDeps) {
           { name: "mock-exams", description: "Simulados" },
           { name: "moderation", description: "Moderação do catálogo (editor)" },
           { name: "ai", description: "Recursos de IA (propõem; a pessoa confirma)" },
+          { name: "past-exams", description: "Provas anteriores e Raio-X da banca" },
         ],
       },
       transform: jsonSchemaTransform,
@@ -91,7 +97,19 @@ export async function buildApp({ config, db, email, ai }: AppDeps) {
   registerMeRoutes(app, db);
   registerAdminUserRoutes(app, db);
   registerCatalogRoutes(app, db);
-  const planService = new PlanService(db, createPerformanceProvider(db));
+
+  const aiProvider =
+    ai !== undefined
+      ? ai
+      : config.ANTHROPIC_API_KEY
+        ? new AnthropicAiProvider(config.ANTHROPIC_API_KEY, config.ANTHROPIC_MODEL)
+        : null;
+
+  // Provas anteriores alimentam o planejador com a incidência na banca (Raio-X).
+  const pastExamsService = new PastExamsService(db, aiProvider);
+  const planService = new PlanService(db, createPerformanceProvider(db), (goal, ids) =>
+    pastExamsService.incidenceForGoal(goal, ids),
+  );
   registerPlanRoutes(app, db, planService);
   const questionsService = new QuestionsService(db);
   registerQuestionRoutes(app, db, questionsService, planService, new DashboardService(db, planService.repo));
@@ -99,13 +117,28 @@ export async function buildApp({ config, db, email, ai }: AppDeps) {
   registerAdminPlatformRoutes(app, db);
   registerModerationRoutes(app, db);
   registerPrivacyRoutes(app, db);
-  const aiProvider =
-    ai !== undefined
-      ? ai
-      : config.ANTHROPIC_API_KEY
-        ? new AnthropicAiProvider(config.ANTHROPIC_API_KEY, config.ANTHROPIC_MODEL)
-        : null;
-  registerAiRoutes(app, new AiService(db, config, aiProvider, planService.repo));
+
+  const aiService = new AiService(db, config, aiProvider, planService.repo, {
+    xrayForGoal: async (goal) => {
+      const slug = await pastExamsService.boardSlugForExam(goal.examId);
+      return slug ? pastExamsService.xray(slug, {}) : null;
+    },
+    currentCycle: async (user) => (await planService.current(user)).cycle,
+  });
+  registerAiRoutes(app, aiService);
+  registerAiPlanSummaryRoute(app, aiService);
+
+  // Fila de jobs (ADR-010): handlers por tipo; executada pelo cron, pelo admin e após importações.
+  const jobHandlers = {
+    process_past_exam: (job: JobRow) => pastExamsService.process(String(job.payload.pastExamId)),
+    maintenance_cleanup: async () => {
+      const removed = await maintenanceCleanup(db);
+      app.log.info({ removed }, "manutenção diária concluída");
+    },
+  };
+  const runQueue = (budgetMs: number) => runJobs(db, jobHandlers, app.log, { budgetMs });
+  registerPastExamRoutes(app, db, pastExamsService, () => runQueue(50_000));
+  registerJobRoutes(app, db, config, runQueue);
 
   return { app, auth, email: emailProvider };
 }

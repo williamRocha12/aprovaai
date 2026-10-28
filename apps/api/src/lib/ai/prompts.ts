@@ -56,3 +56,28 @@ function formatQuestion(q: QuestionForAi): string {
       : q.options.map((o) => `${o.label}) ${o.text}`).join("\n");
   return `${meta}\n\n${q.statement}\n\n${options}`;
 }
+
+export const CLASSIFY_BATCH_SYSTEM = `Você classifica questões de provas de concurso em assuntos de uma lista fechada (edital de referência).
+${UNTRUSTED_NOTE}
+Para cada questão (identificada pelo número), escolha o topicId que melhor corresponde ao conteúdo cobrado, ou null se nenhum servir.
+Confiança: "alta" só quando inequívoco; "baixa" quando houver dúvida real (essas vão para revisão humana).`;
+
+export function classifyBatchUserPrompt(
+  items: (QuestionForAi & { number: number })[],
+  taxonomy: TaxonomyOption[],
+): string {
+  const list = taxonomy.map((t) => `- ${t.topicId}: ${t.subjectName} > ${t.topicName}`).join("\n");
+  const questions = items
+    .map((q) => `<questao numero="${q.number}">\n${formatQuestion(q)}\n</questao>`)
+    .join("\n\n");
+  return `Assuntos possíveis:\n${list}\n\n${questions}`;
+}
+
+export const PLAN_SUMMARY_SYSTEM = `Você escreve um resumo estratégico curto para um candidato de concurso público, em português.
+Use SOMENTE os números fornecidos (estatísticas da banca e prioridades calculadas). Não invente percentuais, leis ou tendências.
+Se a amostra de provas for pequena (menos de 5), diga isso. Não prometa aprovação.
+Resumo: até 120 palavras. highlights: 3 a 5 recomendações objetivas.`;
+
+export function planSummaryUserPrompt(input: unknown): string {
+  return `Dados do plano (JSON):\n${JSON.stringify(input, null, 2)}`;
+}

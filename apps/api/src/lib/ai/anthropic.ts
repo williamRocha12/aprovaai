@@ -3,20 +3,27 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { z } from "zod";
 import {
+  CLASSIFY_BATCH_SYSTEM,
   CLASSIFY_SYSTEM,
   EXPLAIN_SYSTEM,
   NOTICE_SYSTEM,
+  classifyBatchUserPrompt,
   classifyUserPrompt,
   explainUserPrompt,
   noticeUserPrompt,
+  PLAN_SUMMARY_SYSTEM,
+  planSummaryUserPrompt,
 } from "./prompts";
 import {
+  aiBatchClassificationSchema,
   aiClassificationSchema,
   aiExplanationSchema,
   aiNoticeSchema,
+  aiPlanSummarySchema,
   type AiProvider,
   type AiResult,
   type AiUsage,
+  type PlanSummaryInput,
 } from "./provider";
 
 type Effort = "low" | "medium" | "high";
@@ -99,6 +106,27 @@ export class AnthropicAiProvider implements AiProvider {
     return this.run(aiExplanationSchema, {
       system: EXPLAIN_SYSTEM,
       user: explainUserPrompt(question),
+      maxTokens: 8_000,
+      effort: "medium",
+    });
+  }
+
+  classifyBatch(
+    items: Parameters<AiProvider["classifyBatch"]>[0],
+    taxonomy: Parameters<AiProvider["classifyBatch"]>[1],
+  ) {
+    return this.run(aiBatchClassificationSchema, {
+      system: CLASSIFY_BATCH_SYSTEM,
+      user: classifyBatchUserPrompt(items, taxonomy),
+      maxTokens: 16_000,
+      effort: "low",
+    });
+  }
+
+  planSummary(input: PlanSummaryInput) {
+    return this.run(aiPlanSummarySchema, {
+      system: PLAN_SUMMARY_SYSTEM,
+      user: planSummaryUserPrompt(input),
       maxTokens: 8_000,
       effort: "medium",
     });

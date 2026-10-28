@@ -6,3 +6,4 @@ export * from "./users";
 export * from "./questions";
 export * from "./admin";
 export * from "./mock-exams";
+export * from "./past-exams";

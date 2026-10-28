@@ -53,6 +53,34 @@ export const aiExplanationSchema = z.object({
 });
 export type AiExplanation = z.infer<typeof aiExplanationSchema>;
 
+export const aiBatchClassificationSchema = z.object({
+  items: z.array(
+    z.object({
+      number: z.number(),
+      topicId: z.string().nullable(),
+      confidence: z.enum(["alta", "media", "baixa"]),
+    }),
+  ),
+});
+export type AiBatchClassification = z.infer<typeof aiBatchClassificationSchema>;
+
+export const aiPlanSummarySchema = z.object({
+  summary: z.string(),
+  highlights: z.array(z.string()),
+});
+export type AiPlanSummary = z.infer<typeof aiPlanSummarySchema>;
+
+/** Dados agregados (sem nada pessoal) que a IA usa para explicar a estratégia do plano. */
+export interface PlanSummaryInput {
+  examTitle: string;
+  boardName: string | null;
+  sample: { exams: number; yearFrom: number | null; yearTo: number | null };
+  topBoardTopics: { subjectName: string; topicName: string; sharePercent: number; trend: string | null }[];
+  topPriorities: { subjectName: string; topicName: string; justification: string }[];
+  phase: string;
+  daysToExam: number | null;
+}
+
 export interface AiUsage {
   model: string;
   inputTokens: number;
@@ -89,4 +117,9 @@ export interface AiProvider {
   extractNotice(documentText: string): Promise<AiResult<AiNotice>>;
   classifyQuestion(question: QuestionForAi, taxonomy: TaxonomyOption[]): Promise<AiResult<AiClassification>>;
   explainQuestion(question: QuestionForAi): Promise<AiResult<AiExplanation>>;
+  classifyBatch(
+    items: (QuestionForAi & { number: number })[],
+    taxonomy: TaxonomyOption[],
+  ): Promise<AiResult<AiBatchClassification>>;
+  planSummary(input: PlanSummaryInput): Promise<AiResult<AiPlanSummary>>;
 }

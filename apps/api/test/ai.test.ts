@@ -5,8 +5,8 @@ import type { ImportTopic } from "@aprovaai/shared";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { AiNotice, AiProvider, AiResult, QuestionForAi, TaxonomyOption } from "../src/lib/ai/provider";
 import { toImportInput } from "../src/modules/ai/service";
+import { FAKE_NOTICE, FAKE_USAGE, FakeAi } from "./fake-ai";
 import {
   createTestContext,
   createVerifiedUser,
@@ -15,68 +15,8 @@ import {
   type TestContext,
 } from "./helpers";
 
-const usage = { model: "claude-opus-5-5", inputTokens: 1000, outputTokens: 200 };
-
-const NOTICE: AiNotice = {
-  examTitle: "Prefeitura de Teste — Agente Administrativo",
-  organizationName: "Prefeitura de Teste",
-  organizationAcronym: null,
-  sphere: "municipal",
-  uf: "sc",
-  city: "Teste",
-  boardName: "Banca Teste",
-  positionTitle: "Agente Administrativo",
-  educationLevel: "medio",
-  noticeTitle: "Edital 1/2026",
-  scoringType: "standard",
-  examDate: "data inválida",
-  subjects: [
-    {
-      name: "Língua Portuguesa",
-      weight: 1,
-      questionCount: 10,
-      kind: "basica",
-      topics: [
-        {
-          name: "Crase",
-          relevance: 9,
-          rawText: "Emprego do sinal indicativo de crase.",
-          subtopics: ["Casos facultativos"],
-        },
-      ],
-    },
-  ],
-  warnings: ["O edital não informa pesos."],
-};
-
-class FakeAi implements AiProvider {
-  readonly name = "fake";
-  calls = 0;
-  lastClassifyInput: { question: QuestionForAi; taxonomy: TaxonomyOption[] } | null = null;
-  nextExplain: AiResult<{ explanation: string; hasEvidence: boolean }> = {
-    ok: true,
-    data: { explanation: "Explicação de teste.", hasEvidence: true },
-    usage,
-  };
-
-  async extractNotice(): Promise<AiResult<AiNotice>> {
-    this.calls++;
-    return { ok: true, data: NOTICE, usage };
-  }
-  async classifyQuestion(question: QuestionForAi, taxonomy: TaxonomyOption[]) {
-    this.calls++;
-    this.lastClassifyInput = { question, taxonomy };
-    return {
-      ok: true as const,
-      data: { topicId: taxonomy[0]?.topicId ?? null, confidence: "alta" as const, reason: "Teste" },
-      usage,
-    };
-  }
-  async explainQuestion() {
-    this.calls++;
-    return this.nextExplain;
-  }
-}
+const usage = FAKE_USAGE;
+const NOTICE = FAKE_NOTICE;
 
 let ctx: TestContext;
 const fake = new FakeAi();
@@ -213,6 +153,19 @@ describe("IA", () => {
     const second = (await client.post(`/api/ai/questions/${id}/explain`)).json();
     expect(second.cached).toBe(true);
     expect(fake.calls).toBe(callsAfterFirst);
+  });
+
+  it("resumo estratégico usa só dados agregados e vem marcado como IA", async () => {
+    const { client } = await createVerifiedUser(ctx, "a@exemplo.com");
+    expect((await client.post("/api/ai/plan-summary")).statusCode).toBe(400);
+    await onboard(client);
+    const res = await client.post("/api/ai/plan-summary");
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ summary: "Resumo de teste.", generatedByAi: true });
+    const input = fake.lastPlanSummaryInput;
+    expect(input?.topPriorities.length).toBeGreaterThan(0);
+    expect(input?.sample.exams).toBe(0);
+    expect(JSON.stringify(input)).not.toContain("a@exemplo.com");
   });
 
   it("falha do provedor vira erro claro e fica registrada", async () => {

@@ -11,17 +11,17 @@ import {
   topics,
   type Database,
 } from "@aprovaai/db";
-import { noticeImportSchema, type NoticeImportInput } from "@aprovaai/shared";
+import { noticeImportSchema, type BoardXray, type Cycle, type NoticeImportInput } from "@aprovaai/shared";
 import { and, asc, count, eq, gte, isNull, or } from "drizzle-orm";
 import type { AppConfig } from "../../config";
 import { estimateCostUsd } from "../../lib/ai/anthropic";
-import type { AiNotice, AiProvider, AiResult, QuestionForAi } from "../../lib/ai/provider";
+import type { AiNotice, AiProvider, AiResult, PlanSummaryInput, QuestionForAi } from "../../lib/ai/provider";
 import { AppError, notFound } from "../../lib/errors";
 import { isFlagEnabled } from "../../lib/feature-flags";
 import type { CurrentUser } from "../../plugins/auth-context";
-import type { PlanRepository } from "../plan/repository";
+import type { GoalRow, PlanRepository } from "../plan/repository";
 
-type Feature = "notice_extract" | "question_classify" | "question_explain";
+type Feature = "notice_extract" | "question_classify" | "question_explain" | "plan_summary";
 
 /** Converte a saída plana da IA no formato de importação (que depois é validado de verdade). */
 export function toImportInput(ai: AiNotice): NoticeImportInput {
@@ -89,13 +89,68 @@ export function toImportInput(ai: AiNotice): NoticeImportInput {
   };
 }
 
+/** Dados agregados que o resumo estratégico usa (vêm do Raio-X e do ciclo; nada pessoal). */
+export interface StrategySources {
+  xrayForGoal(goal: GoalRow): Promise<BoardXray | null>;
+  currentCycle(user: CurrentUser): Promise<Cycle | null>;
+}
+
 export class AiService {
   constructor(
     private readonly db: Database,
     private readonly config: AppConfig,
     private readonly provider: AiProvider | null,
     private readonly planRepo: PlanRepository,
+    private readonly strategy: StrategySources | null = null,
   ) {}
+
+  /**
+   * Resumo estratégico do plano. A IA só EXPLICA a prioridade (que continua determinística),
+   * usando as estatísticas do Raio-X e as justificativas já calculadas como fonte.
+   */
+  async planSummary(user: CurrentUser) {
+    const provider = await this.requireProvider();
+    const goal = await this.planRepo.activeGoal(user.id);
+    if (!goal || !this.strategy)
+      throw new AppError(400, "VALIDATION_ERROR", "Configure seu plano antes de pedir o resumo.");
+    const [xray, cycle] = await Promise.all([
+      this.strategy.xrayForGoal(goal),
+      this.strategy.currentCycle(user),
+    ]);
+    const input: PlanSummaryInput = {
+      examTitle: goal.examTitle,
+      boardName: xray?.board.name ?? null,
+      sample: {
+        exams: xray?.sample.exams ?? 0,
+        yearFrom: xray?.sample.yearFrom ?? null,
+        yearTo: xray?.sample.yearTo ?? null,
+      },
+      topBoardTopics: (xray?.topics ?? []).slice(0, 8).map((t) => ({
+        subjectName: t.subjectName,
+        topicName: t.topicName,
+        sharePercent: Math.round(t.share * 1000) / 10,
+        trend: t.trend,
+      })),
+      topPriorities: [...(cycle?.tasks ?? [])]
+        .filter((t) => t.topicName)
+        .sort((a, b) => b.priority - a.priority)
+        .slice(0, 5)
+        .map((t) => ({
+          subjectName: t.subjectName ?? "",
+          topicName: t.topicName ?? "",
+          justification: t.justification,
+        })),
+      phase: cycle?.phase ?? "base",
+      daysToExam: cycle?.daysToExam ?? null,
+    };
+    await this.assertQuota(user);
+    const result = await this.record(user, "plan_summary", await provider.planSummary(input));
+    return {
+      ...result,
+      sources: { boardSample: input.sample, boardName: input.boardName },
+      generatedByAi: true as const,
+    };
+  }
 
   /** IA só funciona com a flag ligada E a chave configurada. Sem isso, o recurso não existe (nunca é simulado). */
   private async requireProvider(): Promise<AiProvider> {

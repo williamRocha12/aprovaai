@@ -101,3 +101,33 @@ export function registerAiRoutes(app: FastifyInstance, service: AiService): void
     async (request) => service.explainQuestion(requireUser(request), request.params.id),
   );
 }
+
+export function registerAiPlanSummaryRoute(app: FastifyInstance, service: AiService): void {
+  app.withTypeProvider<ZodTypeProvider>().post(
+    "/api/ai/plan-summary",
+    {
+      preHandler: requireAuth,
+      config: aiRateLimit,
+      schema: {
+        tags: ["ai"],
+        response: {
+          200: z.object({
+            summary: z.string(),
+            highlights: z.array(z.string()),
+            sources: z.object({
+              boardName: z.string().nullable(),
+              boardSample: z.object({
+                exams: z.number(),
+                yearFrom: z.number().nullable(),
+                yearTo: z.number().nullable(),
+              }),
+            }),
+            generatedByAi: z.literal(true),
+          }),
+          ...errors,
+        },
+      },
+    },
+    async (request) => service.planSummary(requireUser(request)),
+  );
+}

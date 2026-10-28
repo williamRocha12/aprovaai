@@ -37,6 +37,9 @@ const configSchema = z
     /** Limite de chamadas de IA por usuário por dia. */
     AI_DAILY_QUOTA: z.coerce.number().int().min(0).default(30),
 
+    /** Segredo do Vercel Cron (header Authorization: Bearer). Sem ele, a rota de cron não existe. */
+    CRON_SECRET: z.string().min(16).optional(),
+
     /** Publica o Swagger UI em /docs. Em produção fica desligado por padrão. */
     API_DOCS_ENABLED: booleanFromEnv.optional(),
   })
