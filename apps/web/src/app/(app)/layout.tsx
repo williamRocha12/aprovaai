@@ -13,6 +13,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const links = [
     { href: "/agora", label: "Agora" },
     { href: "/plano", label: "Plano" },
+    { href: "/questoes", label: "Questões" },
+    { href: "/revisoes", label: "Revisões" },
+    { href: "/painel", label: "Painel" },
     { href: "/concursos", label: "Concursos" },
     { href: "/conta", label: "Conta" },
     ...(user.role === "admin" ? [{ href: "/admin/usuarios", label: "Admin" }] : []),

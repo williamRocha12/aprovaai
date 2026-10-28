@@ -36,4 +36,37 @@ test("onboarding gera o ciclo e o bloco concluído aparece no plano", async ({ p
   await page.getByRole("link", { name: "Ver semana" }).click();
   await expect(page.getByRole("heading", { name: "Plano da semana" })).toBeVisible();
   await expect(page.getByText("Concluída").first()).toBeVisible();
+
+  // Responder questão → errar → classificar o erro → entrar na revisão.
+  await page.getByRole("link", { name: "Questões", exact: true }).click();
+  await page.getByRole("link", { name: "Resolver agora" }).click();
+  await page.getByRole("radio").first().check();
+  await page.getByRole("button", { name: "Responder" }).click();
+  const verdict = page.locator("[role=alert], [role=status]").filter({ hasText: /Você (acertou|errou)/ });
+  await expect(verdict).toBeVisible();
+  if ((await verdict.textContent())?.includes("acertou")) {
+    // Acertou de primeira: responde de novo com outra alternativa para gerar o erro.
+    const answer = (await verdict.textContent())?.match(/Gabarito: ([A-E])/)?.[1];
+    await page.getByRole("button", { name: "Responder de novo" }).click();
+    const radios = page.getByRole("radio");
+    const count = await radios.count();
+    for (let i = 0; i < count; i++) {
+      if ((await radios.nth(i).getAttribute("value")) !== answer) {
+        await radios.nth(i).check();
+        break;
+      }
+    }
+    await page.getByRole("button", { name: "Responder" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "Você errou" })).toBeVisible();
+  }
+  await page.getByRole("button", { name: "Falta de teoria" }).click();
+  await expect(page.getByRole("button", { name: "Falta de teoria" })).toHaveClass(/bg-primary/);
+
+  await page.getByRole("link", { name: "Revisões", exact: true }).click();
+  await page.getByRole("tab", { name: /Futuras \(1\)/ }).click();
+  await expect(page.getByText("Falta de teoria")).toBeVisible();
+
+  await page.getByRole("link", { name: "Painel", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Painel" })).toBeVisible();
+  await expect(page.getByText("Plano sobre concurso de exemplo")).toBeVisible();
 });

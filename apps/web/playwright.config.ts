@@ -18,6 +18,8 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: "pnpm start",
+    // Vários cadastros por minuto saindo do mesmo IP: o rate limit é coberto nos testes de integração.
+    env: { RATE_LIMIT_ENABLED: "false" },
     url: "http://localhost:3000/api/health",
     reuseExistingServer: !isCI,
     timeout: 60_000,

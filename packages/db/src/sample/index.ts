@@ -69,16 +69,14 @@ async function seedSampleQuestions(db: Database): Promise<number> {
         .returning({ id: questions.id });
       if (!question) continue;
       if (q.options?.length) {
-        await tx
-          .insert(questionOptions)
-          .values(
-            q.options.map((o, i) => ({
-              questionId: question.id,
-              label: o.label,
-              text: o.text,
-              sortOrder: i,
-            })),
-          );
+        await tx.insert(questionOptions).values(
+          q.options.map((o, i) => ({
+            questionId: question.id,
+            label: o.label,
+            text: o.text,
+            sortOrder: i,
+          })),
+        );
       }
       created++;
     }

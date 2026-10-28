@@ -426,16 +426,14 @@ export class QuestionsService {
         .returning({ id: questions.id });
       if (!created) throw new Error("Falha ao criar questão.");
       if (input.type === "multipla_escolha" && input.options.length > 0) {
-        await tx
-          .insert(questionOptions)
-          .values(
-            input.options.map((o, i) => ({
-              questionId: created.id,
-              label: o.label,
-              text: o.text,
-              sortOrder: i,
-            })),
-          );
+        await tx.insert(questionOptions).values(
+          input.options.map((o, i) => ({
+            questionId: created.id,
+            label: o.label,
+            text: o.text,
+            sortOrder: i,
+          })),
+        );
       }
       return created;
     });
