@@ -5,6 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/feedback";
 import { getCurrentUser } from "@/lib/server-api";
 import { ChangePasswordForm } from "./change-password-form";
+import { PrivacyPanel } from "./privacy-panel";
 import { ProfileForm } from "./profile-form";
 import { SessionsPanel } from "./sessions-panel";
 
@@ -49,6 +50,13 @@ export default async function AccountPage() {
         <h2 className="text-lg font-semibold">Sessões ativas</h2>
         <div className="mt-4">
           <SessionsPanel />
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="text-lg font-semibold">Seus dados (LGPD)</h2>
+        <div className="mt-4">
+          <PrivacyPanel email={user.email} />
         </div>
       </Card>
     </div>

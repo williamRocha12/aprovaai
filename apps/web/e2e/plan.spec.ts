@@ -69,4 +69,14 @@ test("onboarding gera o ciclo e o bloco concluído aparece no plano", async ({ p
   await page.getByRole("link", { name: "Painel", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Painel" })).toBeVisible();
   await expect(page.getByText("Plano sobre concurso de exemplo")).toBeVisible();
+
+  // Simulado: montar, responder uma, finalizar e ver a nota.
+  await page.getByRole("link", { name: "Simulados", exact: true }).click();
+  await page.getByLabel("Número de questões").fill("5");
+  await page.getByRole("button", { name: "Montar e começar" }).click();
+  await expect(page.getByRole("button", { name: "Finalizar" })).toBeVisible();
+  await page.getByRole("radio").first().click();
+  await page.getByRole("button", { name: "Finalizar" }).click();
+  await expect(page.getByText("Recomendações para o próximo ciclo")).toBeVisible();
+  await expect(page.getByText("Nota", { exact: true })).toBeVisible();
 });
