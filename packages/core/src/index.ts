@@ -5,3 +5,5 @@ export * from "./planner";
 export * from "./spaced-repetition";
 export * from "./scoring";
 export * from "./metrics";
+export * from "./past-exam-parser";
+export * from "./board-stats";
