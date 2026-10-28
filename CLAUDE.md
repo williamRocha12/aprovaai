@@ -123,7 +123,19 @@ Feito:
 - Web: Questões, resolução, registrar (rápido/completo), Revisões, Caderno de erros, Painel (Recharts, série única + tabela).
 - Testes: core 40, API 68, E2E 3 (inclui responder → classificar erro → revisão → painel).
 
-Próximos passos (Etapa E): simulados, painel admin (moderação de catálogo e reportes, métricas, feature flags), LGPD (exportar e
-excluir conta).
+**Etapa E — Simulados, admin e LGPD: concluída (2026-10-28). MVP (critérios 1–10) completo.**
+
+- Schema `0003`: mock_exams, mock_exam_questions, mock_exam_attempts (resultado em jsonb).
+- Simulados (flag `mock_exams`): montagem proporcional ao nº de questões do edital, não respondidas primeiro, regra de pontuação
+  do edital (Cebraspe), aplicação com tempo-limite e retomada, finalização idempotente (tentativas `simulado` → caderno e
+  revisão), resultado por disciplina/assunto e recomendações.
+- Admin: feature flags (auditadas), métricas agregadas anônimas. Moderação (editor/admin): reportes e correção/anulação de
+  questões do catálogo, auditadas.
+- LGPD: `GET /api/me/export` (JSON sem hash/tokens) e `DELETE /api/me` (e-mail + senha; exclusão física em cascata; auditoria,
+  consentimentos e reportes ficam com `user_id` NULL). Exclusão é imediata (o plano previa soft delete + job; ver backlog).
+- Testes: API 80, E2E 4.
+
+Próximos passos (Etapa F): IA (importação assistida de edital a partir de PDF, classificação de questões, explicações), com
+cota, rate limit e `ai_interactions`.
 
 Pendências conhecidas: ver [docs/backlog.md](docs/backlog.md).
