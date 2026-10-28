@@ -18,7 +18,9 @@
     "user:set-role": "pnpm --filter @aprovaai/api user:set-role",
     "feature:set": "pnpm --filter @aprovaai/api feature:set",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:sample": "pnpm --filter @aprovaai/db db:sample",
+    "db:sample:remove": "pnpm --filter @aprovaai/db db:sample:remove"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

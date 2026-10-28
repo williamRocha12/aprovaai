@@ -13,11 +13,14 @@
     "db:migrate:vercel": "tsx src/cli/vercel-migrate.ts",
     "db:seed": "tsx src/cli/seed.ts",
     "lint": "eslint .",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "db:sample": "tsx src/cli/sample.ts",
+    "db:sample:remove": "tsx src/cli/sample.ts --remove"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",
-    "postgres": "^3.4.9"
+    "postgres": "^3.4.9",
+    "@aprovaai/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
