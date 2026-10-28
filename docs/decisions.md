@@ -74,10 +74,22 @@ Formato: contexto → decisão → consequência. Mais recentes no fim. ADR subs
 ## ADR-010 — Jobs com tabela no Postgres + Vercel Cron (substitui pg-boss)
 
 - **Contexto:** o pg-boss precisa de um processo de longa duração, que a Vercel não oferece.
-- **Decisão (a implementar na Etapa G):** tabela `jobs` (tipo, payload, status, tentativas, `run_after`, `dedupe_key` única).
-  Rotas `/api/cron/<job>` são disparadas pelo Vercel Cron, autenticadas por `Authorization: Bearer $CRON_SECRET`,
+- **Decisão (implementada na Etapa G):** tabela `jobs` (tipo, payload, status, tentativas, `run_after`, `dedupe_key` única).
+  Uma rota `/api/cron/jobs` é disparada pelo Vercel Cron, autenticadas por `Authorization: Bearer $CRON_SECRET`,
   e processam lotes com `SELECT ... FOR UPDATE SKIP LOCKED` dentro de um orçamento de tempo menor que o `maxDuration`.
   Retry com backoff exponencial e idempotência por hash do documento.
   Ações disparadas pelo usuário ("rodar agora" no admin) só enfileiram, e o próprio request processa um lote curto.
 - **Consequência:** sem infraestrutura extra. Processamentos longos (PDF grande) precisam ser divididos em etapas retomáveis.
   No plano Hobby, cada cron roda no máximo 1x/dia (ver deploy.md).
+
+- **Como ficou:** o runner mora em `apps/api/src/lib/jobs.ts` (não há `apps/worker`): a mesma função atende o cron diário,
+  o "rodar agora" do admin e o processamento imediato após a importação de uma prova.
+
+## ADR-011 — Raio-X calculado na hora, sem tabela de estatísticas (2026-10-28)
+
+- **Contexto:** o plano previa `board_topic_stats` pré-agregada por banca × assunto.
+- **Decisão:** calcular o Raio-X a cada consulta a partir de `past_exam_questions` revisadas (função pura em
+  `packages/core/src/board-stats.ts`). O volume esperado (dezenas de provas por banca) cabe numa consulta indexada.
+- **Consequência:** nada a invalidar quando o editor revisa uma questão; o número exibido é sempre o atual. Se o volume crescer,
+  materializar em tabela atualizada por job sem mudar a API. A incidência só alimenta o planejador com 3+ provas da banca,
+  para não supervalorizar amostra pequena.

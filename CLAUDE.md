@@ -148,7 +148,22 @@ Feito:
   sem conteúdo). Schema `0004`. `maxDuration = 300` na rota da API.
 - Testes com provedor dublê injetado (8). API 88.
 
-Próximos passos (Etapa G): fila de jobs no Postgres + Vercel Cron, provas anteriores (upload/importação, pipeline, revisão
-humana), estatísticas banca × assunto, Raio-X da banca e incidência alimentando o planejador.
+**Etapa G — Provas anteriores e Raio-X: concluída (2026-10-28).**
+
+- Schemas `0005`/`0006`: `jobs` (fila no Postgres, `FOR UPDATE SKIP LOCKED`, backoff exponencial, `dedupe_key`), `past_exams`,
+  `past_exam_questions`, resumo de plano por IA. Runner em `apps/api/src/lib/jobs.ts` (sem `apps/worker`, ADR-010).
+- Vercel Cron diário (`/api/cron/jobs`, `CRON_SECRET`) + "Rodar agora" em Admin → Tarefas. Manutenção diária apaga sessões
+  expiradas, tentativas de login, rate limits e contas não verificadas há 30 dias.
+- Provas anteriores: editor importa texto do PDF oficial (lido no navegador) com URL da fonte; parser no core separa questões
+  (múltipla escolha e Cebraspe) e aplica o gabarito; IA (se ligada) sugere assunto, confiança baixa vai para revisão humana;
+  publicação no banco de questões e texto integral só com a flag `past_exam_full_text`.
+- Raio-X da banca calculado na hora (ADR-011): incidência por assunto, tendência, estilo, aviso de amostra pequena.
+  Com 3+ provas, a incidência alimenta a prioridade do planejador.
+- Web: `/provas`, `/provas/[id]` (revisão do editor), `/provas/importar`, `/raio-x`, `/admin/jobs`, card "Resumo estratégico"
+  (IA) no painel. Docs: `docs/sources.md`, `docs/legal.md`.
+- Testes: core 50, API 96, shared 10, E2E 4.
+
+Próximos passos (Etapa H — radar de editais): conectores (Querido Diário, INLABS), `source_documents` com dedupe por hash,
+eventos com confiança e trecho, fila de confirmação do editor, seguir concurso, alertas por e-mail e no app.
 
 Pendências conhecidas: ver [docs/backlog.md](docs/backlog.md).

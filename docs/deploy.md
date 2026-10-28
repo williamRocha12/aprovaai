@@ -82,6 +82,18 @@ Previews têm URL variável e o Google não aceita curinga no redirect: o login 
 2. Ligue a flag `ai` em Admin → Feature flags (ou `pnpm feature:set ai on`).
 3. Acompanhe o custo pela tabela `ai_interactions` (tokens e custo estimado por chamada).
 
+## Fila de tarefas (Vercel Cron)
+
+`apps/web/vercel.json` agenda `GET /api/cron/jobs` todo dia às 09:00 UTC (06:00 em Brasília). A rota exige
+`Authorization: Bearer $CRON_SECRET`, que a Vercel envia sozinha quando a variável existe no projeto.
+
+1. Gere um segredo: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+2. Cadastre `CRON_SECRET` em **Production** (Settings → Environment Variables) e faça um novo deploy.
+3. Sem a variável a rota responde 404 e nada roda. O admin pode processar a fila manualmente em **Admin → Tarefas**.
+
+O cron enfileira a manutenção diária (sessões expiradas, tentativas de login, rate limits, contas não verificadas há 30 dias)
+e processa a fila (incluindo provas importadas) dentro de um orçamento de 240 s.
+
 ## 4. Depois do primeiro deploy
 
 1. Cadastre-se no site e confirme o e-mail.
@@ -96,7 +108,7 @@ Previews têm URL variável e o Google não aceita curinga no redirect: o login 
 - **Duração das functions:** com Fluid compute, até 300 s no Hobby e 800 s no Pro. O processamento de PDF e a coleta do
   radar (Etapas G/H) precisam caber nisso, em lotes. Ver ADR-010.
 - **Cron:** no Hobby, cada cron roda no máximo 1x por dia. Para o radar 2x/dia, use o plano Pro ou dois crons diários.
-- **Sem disco persistente:** uploads vão para o **Vercel Blob** (Etapa F/G), nunca para o sistema de arquivos.
+- **Sem disco persistente:** não guardamos arquivos. PDFs de edital e de prova são lidos no navegador e só o texto vai à API.
 - **Rate limit geral em memória** (`@fastify/rate-limit`) vale por instância. O rate limit de auth (Better Auth)
   fica no Postgres e vale globalmente. Ver docs/security.md.
 - **Cold start:** a primeira requisição de uma instância inicializa o Fastify e o Better Auth (~centenas de ms).

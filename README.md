@@ -24,6 +24,10 @@ Um **ciclo de estudos dinâmico** por concurso-alvo:
   incidência na banca e cobertura pendente. Toda tarefa vem com **justificativa** legível.
 - Erros classificados (falta de teoria, pegadinha, atenção...) mudam o tipo do próximo bloco e entram em
   **revisão espaçada** (1/7/30 dias).
+- **Raio-X da banca:** provas oficiais anteriores (importadas por editores, com link da fonte) mostram o que a banca mais
+  cobra; com 3+ provas, essa incidência entra na prioridade do plano.
+- IA opcional (Claude): proposta de edital a partir do PDF, sugestão de assunto, explicação de questão e resumo estratégico.
+  Sem chave configurada, os recursos não aparecem (nunca são simulados).
 - Sem promessa de aprovação: o foco é organização, constância e atacar o que mais derruba a nota.
 
 Detalhes completos em [docs/architecture.md](docs/architecture.md).
@@ -39,7 +43,8 @@ flowchart LR
   API --> DB["packages/db<br/>Drizzle"]
   DB --> PG[(Neon Postgres)]
   API --> MAIL["E-mail<br/>Mailpit / Resend"]
-  CRON["Vercel Cron<br/>jobs (Etapa G)"] --> API
+  CRON["Vercel Cron<br/>fila de jobs"] --> API
+  API --> AI["Claude API<br/>(opcional)"]
 ```
 
 - **Tudo num único projeto Vercel:** a API Fastify é uma biblioteca executada pela rota `app/api/[...path]` do Next.
@@ -94,14 +99,15 @@ em [docs/deploy.md](docs/deploy.md).
 
 ## Resultados
 
-Estado atual: **Etapa B (fundação) concluída**.
+Estado atual: **Etapas B a G concluídas** (fundação, ciclo de estudos, questões, simulados/admin/LGPD, IA, provas anteriores e Raio-X).
 
-- Cadastro → verificação de e-mail → login/logout → recuperação de senha funcionando ponta a ponta (E2E com Mailpit).
-- 42 testes de integração/unitários na API (auth, bloqueio, RBAC, isolamento entre usuários, config, adaptador Vercel) + 10 no pacote compartilhado + 2 E2E.
-- Painel admin de usuários com auditoria.
+- Cadastro com verificação de e-mail, login com Google, RBAC, auditoria e exportação/exclusão de dados (LGPD).
+- Motor do ciclo determinístico com justificativa por tarefa, revisão espaçada, caderno de erros, painel e simulados.
+- Provas anteriores com leitura automática (questões + gabarito), revisão humana e Raio-X da banca; fila de jobs com Vercel Cron.
+- Testes: 50 no core, 96 de integração na API (inclui isolamento entre usuários), 10 no shared e 4 E2E com Playwright.
 
-**Limitações conhecidas:** o motor do ciclo, o catálogo e as questões ainda não existem (Etapas C e D). O texto de termos e
-privacidade é placeholder para revisão jurídica. O hardening de produção (RLS, CSP com nonce, rate limit compartilhado) está na Etapa I.
+**Limitações conhecidas:** o radar de editais (Etapa H) e o hardening final (RLS, CSP com nonce, rate limit compartilhado,
+Etapa I) ainda não existem. O texto de termos e privacidade é placeholder para revisão jurídica.
 Em produção: **https://aprovaai-nine.vercel.app**. O envio de e-mail (Resend) ainda não está configurado, então o cadastro
-em produção não recebe o link de verificação.
+por e-mail em produção não recebe o link de verificação (o login com Google funciona). A IA depende de `ANTHROPIC_API_KEY`.
 Lista completa em [docs/backlog.md](docs/backlog.md).
