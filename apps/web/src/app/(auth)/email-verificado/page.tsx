@@ -33,7 +33,7 @@ export default async function EmailVerifiedPage({
       <div className="mt-4">
         <Alert variant="success">Sua conta está ativa.</Alert>
       </div>
-      <Link href="/conta" className={buttonVariants({ className: "mt-6 w-full" })}>
+      <Link href="/agora" className={buttonVariants({ className: "mt-6 w-full" })}>
         Continuar
       </Link>
     </Card>

@@ -56,7 +56,7 @@ export function GoogleSignIn({ termsNotice = false }: { termsNotice?: boolean })
     try {
       const { url } = await api.post<{ url: string }>("/api/auth/sign-in/social", {
         provider: "google",
-        callbackURL: "/conta",
+        callbackURL: "/agora",
         errorCallbackURL: "/entrar?erro=google",
       });
       window.location.assign(url);

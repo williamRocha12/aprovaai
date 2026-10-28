@@ -1,0 +1,407 @@
+"use client";
+
+import {
+  SITUATION_LABELS,
+  type Cycle,
+  type ExamDetail,
+  type ExamSummary,
+  type Goal,
+  type GoalInput,
+  type WeeklyAvailability,
+} from "@aprovaai/shared";
+import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Alert, Badge, Card, EmptyState, LoadingState } from "@/components/ui/feedback";
+import { Field, Input, Select, fieldAria } from "@/components/ui/form";
+import { api, errorMessage } from "@/lib/api";
+import { WEEKDAY_LABELS, formatDateBr, formatMinutes } from "@/lib/plan-ui";
+import { cn } from "@/lib/utils";
+
+const DEFAULT_WEEK: WeeklyAvailability = {
+  "0": 0,
+  "1": 120,
+  "2": 120,
+  "3": 120,
+  "4": 120,
+  "5": 120,
+  "6": 240,
+};
+const BLOCK_OPTIONS = [25, 30, 45, 50, 60, 90, 120];
+const HOUR_OPTIONS = Array.from({ length: 25 }, (_, i) => i * 30); // 0 a 12h, de 30 em 30 min
+const DAY_ORDER = ["1", "2", "3", "4", "5", "6", "0"] as const;
+const STEPS = ["Concurso", "Horas", "Disciplinas", "Prova"];
+
+interface SubjectChoice {
+  noticeSubjectId: string;
+  name: string;
+  active: boolean;
+  selfAssessment: number | null;
+}
+
+interface Props {
+  existing: Goal | null;
+  preselectedExamId: string | null;
+  defaultAvailability: WeeklyAvailability | null;
+}
+
+export function OnboardingWizard({ existing, preselectedExamId, defaultAvailability }: Props) {
+  const router = useRouter();
+  const [step, setStep] = useState(0);
+  const [examId, setExamId] = useState<string | null>(preselectedExamId ?? existing?.examId ?? null);
+  const [positionId, setPositionId] = useState<string | null>(existing?.positionId ?? null);
+  const [week, setWeek] = useState<WeeklyAvailability>(
+    existing?.weeklyAvailability ?? defaultAvailability ?? DEFAULT_WEEK,
+  );
+  const [blockMinutes, setBlockMinutes] = useState(existing?.blockMinutes ?? 50);
+  const [subjects, setSubjects] = useState<SubjectChoice[] | null>(
+    existing && existing.examId === (preselectedExamId ?? existing.examId) ? existing.subjects : null,
+  );
+  const [examDate, setExamDate] = useState(existing?.targetExamDate ?? "");
+  const [search, setSearch] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [issues, setIssues] = useState<string[]>([]);
+
+  const exams = useQuery({
+    queryKey: ["catalog", search],
+    queryFn: () =>
+      api.get<{ items: ExamSummary[] }>(
+        `/api/catalog/exams?pageSize=50${search ? `&search=${encodeURIComponent(search)}` : ""}`,
+      ),
+  });
+  const detail = useQuery({
+    queryKey: ["exam", examId],
+    queryFn: () => api.get<ExamDetail>(`/api/catalog/exams/${examId}`),
+    enabled: Boolean(examId),
+  });
+
+  const exam = detail.data;
+  const notice = exam?.notice ?? null;
+  const subjectList: SubjectChoice[] =
+    subjects ??
+    (notice?.subjects ?? []).map((s) => ({
+      noticeSubjectId: s.id,
+      name: s.name,
+      active: true,
+      selfAssessment: null,
+    }));
+  const totalWeek = Object.values(week).reduce((a, b) => a + b, 0);
+
+  function chooseExam(id: string) {
+    if (id !== examId) {
+      setExamId(id);
+      setSubjects(null);
+      setPositionId(null);
+    }
+  }
+
+  function updateSubject(id: string, patch: Partial<SubjectChoice>) {
+    setSubjects(subjectList.map((s) => (s.noticeSubjectId === id ? { ...s, ...patch } : s)));
+  }
+
+  function canAdvance(): string | null {
+    if (step === 0 && (!exam || !notice)) return "Escolha um concurso com edital.";
+    if (step === 1 && totalWeek === 0) return "Informe pelo menos algumas horas na semana.";
+    if (step === 2 && !subjectList.some((s) => s.active)) return "Ative ao menos uma disciplina.";
+    return null;
+  }
+
+  async function submit() {
+    if (!exam || !notice) return;
+    setSubmitting(true);
+    setError(null);
+    setIssues([]);
+    const body: GoalInput = {
+      examId: exam.id,
+      noticeId: notice.id,
+      positionId: positionId ?? exam.positions[0]?.id ?? null,
+      targetExamDate: examDate || null,
+      weeklyAvailability: week,
+      blockMinutes,
+      subjects: subjectList.map(({ noticeSubjectId, active, selfAssessment }) => ({
+        noticeSubjectId,
+        active,
+        selfAssessment,
+      })),
+      priorityWeights: existing?.priorityWeights ?? null,
+      reviewIntervals: existing?.reviewIntervals,
+    };
+    try {
+      const result = await api.request<{ cycle: Cycle | null; issues: { message: string }[] }>(
+        "PUT",
+        "/api/goal",
+        body,
+      );
+      if (result.issues.length > 0) {
+        setIssues(result.issues.map((i) => i.message));
+        return;
+      }
+      router.push("/agora");
+      router.refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const blocker = canAdvance();
+
+  return (
+    <Card>
+      <ol className="mb-6 grid grid-cols-4 gap-2 text-xs" aria-label="Passos">
+        {STEPS.map((label, i) => (
+          <li
+            key={label}
+            aria-current={i === step ? "step" : undefined}
+            className={cn(
+              "rounded-md border px-2 py-1.5 text-center",
+              i === step
+                ? "border-primary bg-primary text-primary-foreground"
+                : i < step
+                  ? "border-success text-success"
+                  : "border-border text-muted-foreground",
+            )}
+          >
+            {i + 1}. {label}
+          </li>
+        ))}
+      </ol>
+
+      {step === 0 && (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold">Qual concurso você vai prestar?</h2>
+          <Input
+            placeholder="Buscar por órgão ou concurso"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Buscar concurso"
+          />
+          {exams.isPending ? (
+            <LoadingState label="Carregando concursos..." />
+          ) : exams.isError ? (
+            <Alert variant="error">{errorMessage(exams.error)}</Alert>
+          ) : exams.data.items.length === 0 ? (
+            <EmptyState
+              title="Nenhum concurso encontrado."
+              description="Cadastre o seu a partir do edital."
+            />
+          ) : (
+            <ul className="max-h-80 space-y-2 overflow-y-auto" role="radiogroup" aria-label="Concursos">
+              {exams.data.items.map((e) => (
+                <li key={e.id}>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={examId === e.id}
+                    onClick={() => chooseExam(e.id)}
+                    className={cn(
+                      "w-full rounded-md border p-3 text-left text-sm hover:bg-muted",
+                      examId === e.id ? "border-primary ring-2 ring-primary/30" : "border-border",
+                    )}
+                  >
+                    <span className="font-medium">{e.title}</span>{" "}
+                    {e.isSample && <Badge tone="warning">Exemplo</Badge>}{" "}
+                    {e.isPrivate && <Badge>Privado</Badge>}
+                    <span className="block text-muted-foreground">
+                      {e.organization}
+                      {e.board ? ` · ${e.board}` : ""} · {SITUATION_LABELS[e.situation]}
+                      {!e.situationConfirmed && " (não confirmado)"}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {detail.isFetching && <LoadingState label="Carregando edital..." />}
+          {exam && exam.positions.length > 1 && (
+            <Field id="position" label="Cargo">
+              <Select
+                {...fieldAria("position")}
+                value={positionId ?? ""}
+                onChange={(e) => setPositionId(e.target.value || null)}
+              >
+                <option value="">Selecione</option>
+                {exam.positions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          {exam && !notice && <Alert variant="warning">Este concurso ainda não tem edital cadastrado.</Alert>}
+          <p className="text-sm text-muted-foreground">
+            Não achou o seu?{" "}
+            <Link href="/concursos/importar" className="text-primary underline">
+              Cadastre a partir do edital
+            </Link>
+            .
+          </p>
+        </section>
+      )}
+
+      {step === 1 && (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold">Quanto tempo você tem para estudar?</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {DAY_ORDER.map((day) => (
+              <Field key={day} id={`day-${day}`} label={WEEKDAY_LABELS[Number(day)] ?? day}>
+                <Select
+                  {...fieldAria(`day-${day}`)}
+                  value={week[day]}
+                  onChange={(e) => setWeek({ ...week, [day]: Number(e.target.value) })}
+                >
+                  {HOUR_OPTIONS.map((m) => (
+                    <option key={m} value={m}>
+                      {m === 0 ? "Não estudo" : formatMinutes(m)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ))}
+          </div>
+          <Field
+            id="block"
+            label="Duração preferida de cada bloco"
+            hint="Blocos menores encaixam melhor em dias corridos."
+          >
+            <Select
+              {...fieldAria("block", undefined, true)}
+              value={blockMinutes}
+              onChange={(e) => setBlockMinutes(Number(e.target.value))}
+            >
+              {BLOCK_OPTIONS.map((m) => (
+                <option key={m} value={m}>
+                  {m} minutos
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <p className="text-sm">
+            Total na semana: <strong>{formatMinutes(totalWeek)}</strong>
+          </p>
+        </section>
+      )}
+
+      {step === 2 && (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold">Disciplinas e autoavaliação</h2>
+          <p className="text-sm text-muted-foreground">
+            Desative o que não vai estudar agora. A autoavaliação (0–100%) só é usada até você responder 10
+            questões do assunto.
+          </p>
+          <ul className="space-y-3">
+            {subjectList.map((s) => (
+              <li
+                key={s.noticeSubjectId}
+                className={cn("rounded-md border border-border p-3", !s.active && "opacity-60")}
+              >
+                <label className="flex items-center gap-2 font-medium">
+                  <input
+                    type="checkbox"
+                    className="size-4"
+                    checked={s.active}
+                    onChange={(e) => updateSubject(s.noticeSubjectId, { active: e.target.checked })}
+                  />
+                  {s.name}
+                </label>
+                {s.active && (
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+                    <label htmlFor={`sa-${s.noticeSubjectId}`} className="text-muted-foreground">
+                      Quanto você domina:
+                    </label>
+                    <input
+                      id={`sa-${s.noticeSubjectId}`}
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={s.selfAssessment ?? 50}
+                      onChange={(e) =>
+                        updateSubject(s.noticeSubjectId, { selfAssessment: Number(e.target.value) })
+                      }
+                      className="w-40 accent-[var(--color-primary)]"
+                    />
+                    <span className="w-24">
+                      {s.selfAssessment === null ? "não informado" : `${s.selfAssessment}%`}
+                    </span>
+                    {s.selfAssessment !== null && (
+                      <button
+                        type="button"
+                        className="text-xs text-primary underline"
+                        onClick={() => updateSubject(s.noticeSubjectId, { selfAssessment: null })}
+                      >
+                        não sei
+                      </button>
+                    )}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {step === 3 && exam && (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold">Data da prova</h2>
+          <p className="text-sm text-muted-foreground">
+            Data no catálogo:{" "}
+            <strong>{exam.datesConfirmed ? formatDateBr(exam.examDate) : "não confirmada"}</strong>. A data
+            define a fase do plano (perto da prova, mais revisão e simulados). Sem data, você fica na fase
+            base.
+          </p>
+          <Field id="exam-date" label="Data da prova (opcional)">
+            <Input
+              {...fieldAria("exam-date")}
+              type="date"
+              value={examDate}
+              onChange={(e) => setExamDate(e.target.value)}
+            />
+          </Field>
+          <div className="rounded-md bg-muted p-3 text-sm">
+            <p>
+              <strong>{exam.title}</strong>
+            </p>
+            <p>
+              {formatMinutes(totalWeek)} por semana · blocos de {blockMinutes} min ·{" "}
+              {subjectList.filter((s) => s.active).length} disciplina(s)
+            </p>
+          </div>
+          {issues.length > 0 && (
+            <Alert variant="warning" title="Ajuste antes de continuar">
+              <ul className="list-disc pl-4">
+                {issues.map((i) => (
+                  <li key={i}>{i}</li>
+                ))}
+              </ul>
+            </Alert>
+          )}
+          {error && <Alert variant="error">{error}</Alert>}
+        </section>
+      )}
+
+      <div className="mt-6 flex items-center justify-between gap-3">
+        <Button variant="outline" onClick={() => setStep((s) => s - 1)} disabled={step === 0}>
+          Voltar
+        </Button>
+        {step < STEPS.length - 1 ? (
+          <div className="flex items-center gap-3">
+            {blocker && <span className="text-xs text-muted-foreground">{blocker}</span>}
+            <Button onClick={() => setStep((s) => s + 1)} disabled={Boolean(blocker)}>
+              Continuar
+            </Button>
+          </div>
+        ) : (
+          <Button onClick={submit} loading={submitting}>
+            {existing ? "Salvar e recalcular" : "Gerar meu ciclo"}
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+}

@@ -102,6 +102,9 @@ importers:
       '@aprovaai/api':
         specifier: workspace:*
         version: link:../api
+      '@aprovaai/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@aprovaai/db':
         specifier: workspace:*
         version: link:../../packages/db

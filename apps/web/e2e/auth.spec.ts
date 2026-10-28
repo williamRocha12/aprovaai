@@ -1,39 +1,15 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { PASSWORD, signIn, signUpAndVerify, uniqueEmail } from "./helpers";
 import { waitForEmailLink } from "./mailpit";
-
-const PASSWORD = "concurso2026";
-
-function uniqueEmail(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@exemplo.com`;
-}
-
-async function signUpAndVerify(page: Page, email: string): Promise<void> {
-  await page.goto("/cadastro");
-  await page.getByLabel("Nome", { exact: true }).fill("Candidata E2E");
-  await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha").fill(PASSWORD);
-  await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "Criar conta" }).click();
-
-  await expect(page.getByRole("heading", { name: "Confirme seu e-mail" })).toBeVisible();
-
-  const link = await waitForEmailLink(email, "Confirme seu e-mail");
-  await page.goto(link);
-  await expect(page.getByRole("heading", { name: "E-mail confirmado" })).toBeVisible();
-}
-
-async function signIn(page: Page, email: string, password: string): Promise<void> {
-  await page.goto("/entrar");
-  await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha").fill(password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-}
 
 test("cadastro → verificação de e-mail → conta → logout → login", async ({ page }) => {
   const email = uniqueEmail("cadastro");
   await signUpAndVerify(page, email);
 
+  // Sem plano ainda: o app leva direto ao onboarding.
   await page.getByRole("link", { name: "Continuar" }).click();
+  await expect(page).toHaveURL(/\/onboarding$/);
+  await page.goto("/conta");
   await expect(page.getByRole("heading", { name: /Olá, Candidata E2E/ })).toBeVisible();
   await expect(page.getByText("Esta sessão")).toBeVisible();
 
@@ -48,7 +24,7 @@ test("cadastro → verificação de e-mail → conta → logout → login", asyn
   await expect(page.getByRole("alert").filter({ hasText: "E-mail ou senha inválidos" })).toBeVisible();
 
   await signIn(page, email, PASSWORD);
-  await expect(page).toHaveURL(/\/conta$/);
+  await expect(page).toHaveURL(/\/onboarding$/);
 });
 
 test("recuperação de senha com link por e-mail", async ({ page }) => {
@@ -72,5 +48,5 @@ test("recuperação de senha com link por e-mail", async ({ page }) => {
   await expect(page.getByText("Senha alterada")).toBeVisible();
 
   await signIn(page, email, newPassword);
-  await expect(page).toHaveURL(/\/conta$/);
+  await expect(page).toHaveURL(/\/onboarding$/);
 });

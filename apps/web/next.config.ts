@@ -32,7 +32,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   outputFileTracingRoot: monorepoRoot,
   // A API (Fastify) e os pacotes internos são TypeScript puro, compilados junto com o web.
-  transpilePackages: ["@aprovaai/api", "@aprovaai/db", "@aprovaai/shared"],
+  transpilePackages: ["@aprovaai/api", "@aprovaai/core", "@aprovaai/db", "@aprovaai/shared"],
   // Carregados do node_modules em runtime, sem bundle: binário nativo (argon2), worker threads (pino)
   // e arquivos estáticos lidos do disco (swagger-ui).
   serverExternalPackages: [

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Alert, Card } from "@/components/ui/feedback";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import { Card } from "@/components/ui/feedback";
 import { getCurrentUser } from "@/lib/server-api";
 import { ChangePasswordForm } from "./change-password-form";
 import { ProfileForm } from "./profile-form";
@@ -19,10 +21,15 @@ export default async function AccountPage() {
         <p className="text-sm text-muted-foreground">{user.email}</p>
       </div>
 
-      <Alert variant="info" title="Plano de estudos">
-        O onboarding (concurso-alvo, horas disponíveis e autoavaliação) e o ciclo de estudos chegam na próxima
-        etapa do projeto. Por enquanto, configure seu perfil e a segurança da conta.
-      </Alert>
+      <Card>
+        <h2 className="text-lg font-semibold">Plano de estudos</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Concurso-alvo, horas por dia, disciplinas ativas, autoavaliação e data da prova.
+        </p>
+        <Link href="/onboarding" className={buttonVariants({ variant: "outline", className: "mt-4" })}>
+          Editar plano
+        </Link>
+      </Card>
 
       <Card>
         <h2 className="text-lg font-semibold">Perfil</h2>

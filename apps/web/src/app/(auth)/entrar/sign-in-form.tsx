@@ -27,7 +27,7 @@ export function SignInForm() {
     setServerError(null);
     try {
       await api.post("/api/auth/sign-in/email", { ...values, callbackURL: "/email-verificado" });
-      router.replace("/conta");
+      router.replace("/agora");
       router.refresh();
     } catch (error) {
       setServerError(authErrorMessage(error));
