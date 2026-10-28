@@ -75,6 +75,13 @@ Não precisam ser definidas: `CLIENT_IP_HEADER` (na Vercel o padrão é `x-real-
 
 Previews têm URL variável e o Google não aceita curinga no redirect: o login Google funciona em produção e em dev.
 
+## IA (opcional)
+
+1. Crie uma chave em console.anthropic.com e defina `ANTHROPIC_API_KEY` (Production). Opcional: `ANTHROPIC_MODEL`
+   (padrão `claude-opus-5-5`) e `AI_DAILY_QUOTA` (padrão 30 usos por usuário a cada 24 h).
+2. Ligue a flag `ai` em Admin → Feature flags (ou `pnpm feature:set ai on`).
+3. Acompanhe o custo pela tabela `ai_interactions` (tokens e custo estimado por chamada).
+
 ## 4. Depois do primeiro deploy
 
 1. Cadastre-se no site e confirme o e-mail.

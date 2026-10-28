@@ -135,7 +135,20 @@ Feito:
   consentimentos e reportes ficam com `user_id` NULL). Exclusão é imediata (o plano previa soft delete + job; ver backlog).
 - Testes: API 80, E2E 4.
 
-Próximos passos (Etapa F): IA (importação assistida de edital a partir de PDF, classificação de questões, explicações), com
-cota, rate limit e `ai_interactions`.
+**Etapa F — IA: concluída (2026-10-28).**
+
+- Camada `apps/api/src/lib/ai/` (interface `AiProvider` + `AnthropicAiProvider`): `claude-opus-5-5`, structured outputs com Zod
+  (`betaZodOutputFormat`), `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`) e tratamento de `refusal`.
+  Sem `ANTHROPIC_API_KEY` ou com a flag `ai` desligada, os recursos não existem (404) e a UI os esconde — nunca simulados.
+- Recursos: proposta de edital a partir do texto do PDF (lido NO NAVEGADOR com `unpdf`; nada salvo sem confirmação humana),
+  sugestão de assunto para questões próprias (o dono aplica), explicação após responder (cache em `ai_explanations`; sem
+  evidência não é guardada). Prompts tratam conteúdo de documento como dado (ignora instruções embutidas); nenhum dado
+  pessoal vai ao provedor.
+- Controles: cota diária por usuário (`AI_DAILY_QUOTA`), rate limit 10/min por rota, `ai_interactions` (tokens, custo, status;
+  sem conteúdo). Schema `0004`. `maxDuration = 300` na rota da API.
+- Testes com provedor dublê injetado (8). API 88.
+
+Próximos passos (Etapa G): fila de jobs no Postgres + Vercel Cron, provas anteriores (upload/importação, pipeline, revisão
+humana), estatísticas banca × assunto, Raio-X da banca e incidência alimentando o planejador.
 
 Pendências conhecidas: ver [docs/backlog.md](docs/backlog.md).
