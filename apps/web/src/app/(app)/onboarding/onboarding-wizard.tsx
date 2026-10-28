@@ -1,21 +1,18 @@
 "use client";
 
 import {
-  BRAZIL_UFS,
-  SITUATION_LABELS,
   type Cycle,
   type ExamDetail,
-  type ExamSummary,
   type Goal,
   type GoalInput,
   type WeeklyAvailability,
 } from "@aprovaai/shared";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Alert, Badge, Card, EmptyState, LoadingState } from "@/components/ui/feedback";
+import { Alert, Card, LoadingState } from "@/components/ui/feedback";
 import { Field, Input, Select, fieldAria } from "@/components/ui/form";
 import { ExamFacts } from "@/components/exam-facts";
 import { useGoals } from "@/components/goal-context";
@@ -35,7 +32,7 @@ const DEFAULT_WEEK: WeeklyAvailability = {
 const BLOCK_OPTIONS = [25, 30, 45, 50, 60, 90, 120];
 const HOUR_OPTIONS = Array.from({ length: 25 }, (_, i) => i * 30); // 0 a 12h, de 30 em 30 min
 const DAY_ORDER = ["1", "2", "3", "4", "5", "6", "0"] as const;
-const STEPS = ["Concurso", "Horas", "Disciplinas", "Prova"];
+const STEPS = ["Horas", "Disciplinas", "Prova"];
 
 interface SubjectChoice {
   noticeSubjectId: string;
@@ -45,52 +42,33 @@ interface SubjectChoice {
 }
 
 interface Props {
+  /** Concurso escolhido na lista (passo anterior) ou o do plano em edição. */
+  examId: string;
   existing: Goal | null;
-  preselectedExamId: string | null;
   defaultAvailability: WeeklyAvailability | null;
 }
 
-export function OnboardingWizard({ existing, preselectedExamId, defaultAvailability }: Props) {
+/** Configuração do plano de um concurso já escolhido: horas, disciplinas e data da prova. */
+export function OnboardingWizard({ examId, existing, defaultAvailability }: Props) {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { goals, selectGoal } = useGoals();
-  // Edição: o concurso é fixo (outro edital = outro concurso); começa nas horas.
-  const [step, setStep] = useState(existing ? 1 : 0);
+  const { selectGoal } = useGoals();
+  const [step, setStep] = useState(0);
   // Se a criação gerou o concurso mas o ciclo teve pendências, os próximos envios editam esse concurso.
   const [goalId, setGoalId] = useState<string | null>(existing?.id ?? null);
-  const [examId, setExamId] = useState<string | null>(preselectedExamId ?? existing?.examId ?? null);
   const [positionId, setPositionId] = useState<string | null>(existing?.positionId ?? null);
   const [week, setWeek] = useState<WeeklyAvailability>(
     existing?.weeklyAvailability ?? defaultAvailability ?? DEFAULT_WEEK,
   );
   const [blockMinutes, setBlockMinutes] = useState(existing?.blockMinutes ?? 50);
-  const [subjects, setSubjects] = useState<SubjectChoice[] | null>(
-    existing && existing.examId === (preselectedExamId ?? existing.examId) ? existing.subjects : null,
-  );
+  const [subjects, setSubjects] = useState<SubjectChoice[] | null>(existing?.subjects ?? null);
   const [examDate, setExamDate] = useState(existing?.targetExamDate ?? "");
-  const [search, setSearch] = useState("");
-  const [uf, setUf] = useState("");
-  const [onlyOpen, setOnlyOpen] = useState(true);
-  const [includeNational, setIncludeNational] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [issues, setIssues] = useState<string[]>([]);
 
-  const catalogParams = new URLSearchParams({ pageSize: "50" });
-  if (search) catalogParams.set("search", search);
-  if (onlyOpen) catalogParams.set("open", "true");
-  if (uf) {
-    catalogParams.set("uf", uf);
-    if (includeNational) catalogParams.set("includeNational", "true");
-  }
-  const exams = useQuery({
-    queryKey: ["catalog", catalogParams.toString()],
-    queryFn: () => api.get<{ items: ExamSummary[] }>(`/api/catalog/exams?${catalogParams.toString()}`),
-  });
   const detail = useQuery({
     queryKey: ["exam", examId],
     queryFn: () => api.get<ExamDetail>(`/api/catalog/exams/${examId}`),
-    enabled: Boolean(examId),
   });
 
   const exam = detail.data;
@@ -105,39 +83,15 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
     }));
   const totalWeek = Object.values(week).reduce((a, b) => a + b, 0);
 
-  /** Ao clicar no concurso, carrega o edital e já segue para a configuração do plano. */
-  async function chooseExam(id: string) {
-    if (id !== examId) {
-      setExamId(id);
-      setSubjects(null);
-      setPositionId(null);
-    }
-    try {
-      const chosen = await queryClient.fetchQuery({
-        queryKey: ["exam", id],
-        queryFn: () => api.get<ExamDetail>(`/api/catalog/exams/${id}`),
-      });
-      if (chosen.notice && chosen.positions.length <= 1) setStep(1);
-    } catch {
-      // O erro aparece pela query de detalhe logo abaixo da lista.
-    }
-  }
-
-  /** Concursos que o usuário já estuda (ativos ou pausados) não podem ser adicionados de novo. */
-  const studying = new Set(goals.filter((g) => g.status !== "encerrado").map((g) => g.examId));
-
   function updateSubject(id: string, patch: Partial<SubjectChoice>) {
     setSubjects(subjectList.map((s) => (s.noticeSubjectId === id ? { ...s, ...patch } : s)));
   }
 
   function canAdvance(): string | null {
-    if (step === 0) {
-      if (!examId) return "Clique em um concurso da lista para selecioná-lo.";
-      if (!exam) return detail.isError ? "Não foi possível carregar o edital." : "Carregando o edital...";
-      if (!notice) return "Este concurso ainda não tem o conteúdo programático cadastrado.";
-    }
-    if (step === 1 && totalWeek === 0) return "Informe pelo menos algumas horas na semana.";
-    if (step === 2 && !subjectList.some((s) => s.active)) return "Ative ao menos uma disciplina.";
+    if (!exam || !notice) return "Carregando o edital...";
+    if (exam.positions.length > 1 && !positionId) return "Escolha o cargo.";
+    if (step === 0 && totalWeek === 0) return "Informe pelo menos algumas horas na semana.";
+    if (step === 1 && !subjectList.some((s) => s.active)) return "Ative ao menos uma disciplina.";
     return null;
   }
 
@@ -183,9 +137,57 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
 
   const blocker = canAdvance();
 
+  if (detail.isPending) return <LoadingState label="Carregando o concurso..." />;
+  if (detail.isError) return <Alert variant="error">{errorMessage(detail.error)}</Alert>;
+  if (!notice) {
+    return (
+      <Alert variant="warning" title="Ainda não dá para montar o plano deste concurso">
+        O conteúdo programático ainda não foi cadastrado.{" "}
+        <Link href="/onboarding" className="underline">
+          Escolher outro concurso
+        </Link>
+      </Alert>
+    );
+  }
+
   return (
     <Card>
-      <ol className="mb-6 grid grid-cols-4 gap-2 text-xs" aria-label="Passos">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3 rounded-md bg-muted p-3">
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">Concurso escolhido</p>
+          <p className="font-semibold">{exam?.title}</p>
+          <p className="text-sm text-muted-foreground">
+            {exam?.organization}
+            {exam?.board ? ` · ${exam.board}` : ""}
+            {exam?.uf ? ` · ${exam.uf}` : ""}
+          </p>
+          {exam && <ExamFacts exam={exam} />}
+        </div>
+        {!existing && (
+          <Link href="/onboarding" className="text-sm text-primary underline">
+            Trocar concurso
+          </Link>
+        )}
+      </div>
+      {exam && exam.positions.length > 1 && (
+        <div className="mb-6">
+          <Field id="position" label="Cargo">
+            <Select
+              {...fieldAria("position")}
+              value={positionId ?? ""}
+              onChange={(e) => setPositionId(e.target.value || null)}
+            >
+              <option value="">Selecione</option>
+              {exam.positions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+      )}
+      <ol className="mb-6 grid grid-cols-3 gap-2 text-xs" aria-label="Passos">
         {STEPS.map((label, i) => (
           <li
             key={label}
@@ -205,132 +207,6 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
       </ol>
 
       {step === 0 && (
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Qual concurso você vai prestar?</h2>
-          <Input
-            placeholder="Buscar por órgão ou concurso"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Buscar concurso"
-          />
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <Select
-              aria-label="Estado"
-              value={uf}
-              onChange={(e) => setUf(e.target.value)}
-              className="w-auto min-w-44"
-            >
-              <option value="">Todos os estados</option>
-              {BRAZIL_UFS.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </Select>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} />
-              Somente em aberto
-            </label>
-            {uf && (
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={includeNational}
-                  onChange={(e) => setIncludeNational(e.target.checked)}
-                />
-                Incluir concursos nacionais (federais)
-              </label>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            A lista mostra os concursos cadastrados no catálogo, conferidos a partir de fontes oficiais. “Em
-            aberto” inclui previstos, autorizados e com edital publicado; só os encerrados ficam de fora.
-          </p>
-          {exams.isPending ? (
-            <LoadingState label="Carregando concursos..." />
-          ) : exams.isError ? (
-            <Alert variant="error">{errorMessage(exams.error)}</Alert>
-          ) : exams.data.items.length === 0 ? (
-            <EmptyState
-              title="Nenhum concurso encontrado com esses filtros."
-              description="Tente outro estado ou cadastre o seu a partir do edital."
-            />
-          ) : (
-            <ul className="max-h-80 space-y-2 overflow-y-auto" role="radiogroup" aria-label="Concursos">
-              {exams.data.items.map((e) => (
-                <li key={e.id}>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={examId === e.id}
-                    disabled={studying.has(e.id)}
-                    onClick={() => void chooseExam(e.id)}
-                    className={cn(
-                      "flex w-full cursor-pointer items-start gap-3 rounded-md border p-3 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60",
-                      examId === e.id ? "border-primary bg-muted ring-2 ring-primary/30" : "border-border",
-                    )}
-                  >
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-2",
-                        examId === e.id ? "border-primary" : "border-muted-foreground",
-                      )}
-                    >
-                      {examId === e.id && <span className="size-2 rounded-full bg-primary" />}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="font-medium">{e.title}</span>{" "}
-                      {e.isSample && <Badge tone="warning">Exemplo</Badge>}{" "}
-                      {e.isPrivate && <Badge>Privado</Badge>}{" "}
-                      {studying.has(e.id) && <Badge tone="success">Você já estuda</Badge>}
-                      <span className="block text-muted-foreground">
-                        {e.organization}
-                        {e.board ? ` · ${e.board}` : ""} · {SITUATION_LABELS[e.situation]}
-                        {!e.situationConfirmed && " (não confirmado)"}
-                      </span>
-                      <ExamFacts exam={e} />
-                      {!e.hasNotice && (
-                        <span className="block text-xs text-warning">
-                          Conteúdo programático em preparação: ainda não dá para montar o plano.
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {detail.isFetching && <LoadingState label="Carregando edital..." />}
-          {detail.isError && <Alert variant="error">{errorMessage(detail.error)}</Alert>}
-          {exam && exam.positions.length > 1 && (
-            <Field id="position" label="Cargo">
-              <Select
-                {...fieldAria("position")}
-                value={positionId ?? ""}
-                onChange={(e) => setPositionId(e.target.value || null)}
-              >
-                <option value="">Selecione</option>
-                {exam.positions.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          )}
-          {exam && !notice && <Alert variant="warning">Este concurso ainda não tem edital cadastrado.</Alert>}
-          <p className="text-sm text-muted-foreground">
-            Não achou o seu?{" "}
-            <Link href="/concursos/importar" className="text-primary underline">
-              Cadastre a partir do edital
-            </Link>
-            .
-          </p>
-        </section>
-      )}
-
-      {step === 1 && (
         <section className="space-y-4">
           <h2 className="text-lg font-semibold">Quanto tempo você tem para estudar?</h2>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -373,7 +249,7 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
         </section>
       )}
 
-      {step === 2 && (
+      {step === 1 && (
         <section className="space-y-4">
           <h2 className="text-lg font-semibold">Disciplinas e autoavaliação</h2>
           <p className="text-sm text-muted-foreground">
@@ -432,7 +308,7 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
         </section>
       )}
 
-      {step === 3 && exam && (
+      {step === 2 && exam && (
         <section className="space-y-4">
           <h2 className="text-lg font-semibold">Data da prova</h2>
           <p className="text-sm text-muted-foreground">
@@ -472,11 +348,7 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
       )}
 
       <div className="mt-6 flex items-center justify-between gap-3">
-        <Button
-          variant="outline"
-          onClick={() => setStep((s) => s - 1)}
-          disabled={step === (existing ? 1 : 0)}
-        >
+        <Button variant="outline" onClick={() => setStep((s) => s - 1)} disabled={step === 0}>
           Voltar
         </Button>
         {step < STEPS.length - 1 ? (

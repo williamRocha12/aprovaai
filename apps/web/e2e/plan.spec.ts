@@ -6,11 +6,11 @@ import { signUpAndVerify, uniqueEmail } from "./helpers";
 test("onboarding gera o ciclo e o bloco concluído aparece no plano", async ({ page }) => {
   await signUpAndVerify(page, uniqueEmail("plano"));
   await page.getByRole("link", { name: "Continuar" }).click();
-  await expect(page.getByRole("heading", { name: "Adicionar concurso" })).toBeVisible();
-
-  // 1. Concurso
-  // Clicar no concurso já leva para a configuração do plano.
-  await page.getByRole("radio", { name: /TRT \(exemplo\)/ }).click();
+  // 1. Lista de concursos (filtro por estado); clicar no concurso abre a configuração do plano.
+  await expect(page.getByRole("heading", { name: "Escolha o concurso" })).toBeVisible();
+  await page.getByRole("combobox", { name: "Estado" }).selectOption("SC");
+  await page.getByRole("link", { name: /TRT \(exemplo\)/ }).click();
+  await expect(page.getByText("Concurso escolhido")).toBeVisible();
 
   // 2. Horas (padrão: 2h de seg a sex e 4h no sábado)
   await expect(page.getByRole("heading", { name: "Quanto tempo você tem para estudar?" })).toBeVisible();
