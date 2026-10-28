@@ -136,7 +136,7 @@ export function registerAdminPlatformRoutes(app: FastifyInstance, db: Database):
             db
               .select({ value: sql<number>`count(distinct ${userExamGoals.userId})::int` })
               .from(userExamGoals)
-              .where(eq(userExamGoals.isActive, true)),
+              .where(eq(userExamGoals.status, "ativo")),
           ),
         },
         activeUsers: { last7Days: active7?.value ?? 0, last30Days: active30?.value ?? 0 },

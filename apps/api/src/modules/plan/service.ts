@@ -14,12 +14,23 @@ import {
   type PlannerTopic,
 } from "@aprovaai/core";
 import { studyCycles, studySessions, studyTasks, userExamGoals, userTopicStates } from "@aprovaai/db";
-import type { Cycle, Goal, GoalInput, StudySession, Task } from "@aprovaai/shared";
+import {
+  MAX_ACTIVE_GOALS,
+  type Cycle,
+  type Goal,
+  type GoalInput,
+  type GoalStatus,
+  type GoalSummary,
+  type StudySession,
+  type Task,
+} from "@aprovaai/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import { AppError, conflict, notFound } from "../../lib/errors";
 import type { CurrentUser } from "../../plugins/auth-context";
 import { CatalogRepository } from "../catalog/repository";
-import { PlanRepository, type CycleRow, type GoalRow } from "./repository";
+import { PlanRepository, type CycleRow, type GoalWithExam } from "./repository";
+
+type Transaction = Parameters<Parameters<PlanRepository["db"]["transaction"]>[0]>[0];
 
 /** Desempenho por assunto do edital (vem das questões e revisões; Etapa D). */
 export interface TopicPerformance {
@@ -34,7 +45,7 @@ export type PerformanceProvider = (
   today: string,
 ) => Promise<Map<string, TopicPerformance>>;
 /** Incidência do assunto nas provas da banca (Raio-X; Etapa G). */
-export type IncidenceProvider = (goal: GoalRow, topicIds: string[]) => Promise<Map<string, number>>;
+export type IncidenceProvider = (goal: GoalWithExam, topicIds: string[]) => Promise<Map<string, number>>;
 
 const noPerformance: PerformanceProvider = async () => new Map();
 const noIncidence: IncidenceProvider = async () => new Map();
@@ -68,10 +79,10 @@ export class PlanService {
     return todayIn(user.timezone);
   }
 
-  // ---------- Objetivo (onboarding / configurações) ----------
+  // ---------- Objetivos (cada concurso que o usuário estuda) ----------
 
-  async goal(user: CurrentUser): Promise<Goal | null> {
-    const goal = await this.repo.activeGoal(user.id);
+  async goal(user: CurrentUser, goalId: string): Promise<Goal | null> {
+    const goal = await this.repo.goalWithExam(user.id, goalId);
     if (!goal) return null;
     const states = await this.repo.topicStates(user.id, goal.id);
     const subjects = new Map<string, Goal["subjects"][number]>();
@@ -88,6 +99,7 @@ export class PlanService {
     }
     return {
       id: goal.id,
+      status: goal.status,
       examId: goal.examId,
       examTitle: goal.examTitle,
       noticeId: goal.noticeId,
@@ -101,50 +113,90 @@ export class PlanService {
     };
   }
 
-  /** Cria (ou substitui) o objetivo ativo e gera o primeiro ciclo. O objetivo anterior fica no histórico. */
-  async saveGoal(user: CurrentUser, input: GoalInput): Promise<PlanState> {
+  /** Cartões de "Meus concursos": progresso de cada concurso calculado dos registros do usuário. */
+  async listGoals(user: CurrentUser): Promise<GoalSummary[]> {
+    const today = this.today(user);
+    const goals = await this.repo.listGoals(user.id);
+    return Promise.all(
+      goals.map(async (goal) => {
+        const [states, cycle] = await Promise.all([
+          this.repo.topicStates(user.id, goal.id),
+          goal.status === "ativo" ? this.repo.activeCycle(user.id, goal.id) : Promise.resolve(null),
+        ]);
+        const tasks = cycle ? (await this.repo.cycleTasks(user.id, cycle.id)).map((r) => r.task) : [];
+        const active = states.filter((s) => s.isActive);
+        const examDate = this.examDateOf(goal);
+        return {
+          id: goal.id,
+          status: goal.status,
+          examId: goal.examId,
+          examTitle: goal.examTitle,
+          organization: goal.organization,
+          board: goal.board,
+          uf: goal.uf,
+          isSample: goal.isSample,
+          examDate,
+          daysToExam: examDate ? daysBetween(today, examDate) : null,
+          weeklyMinutes: Object.values(goal.weeklyAvailability).reduce((a, b) => a + b, 0),
+          week: {
+            plannedMinutes: tasks.reduce((sum, t) => sum + t.durationMin, 0),
+            completedMinutes: tasks
+              .filter((t) => t.status === "concluida")
+              .reduce((sum, t) => sum + t.durationMin, 0),
+          },
+          coverage: { covered: active.filter((s) => s.status === "coberto").length, total: active.length },
+          pendingToday: tasks.filter(
+            (t) => t.suggestedDate <= today && (t.status === "pendente" || t.status === "em_andamento"),
+          ).length,
+          createdAt: goal.createdAt.toISOString(),
+        };
+      }),
+    );
+  }
+
+  private async validateGoalInput(user: CurrentUser, input: GoalInput) {
     const notice = await this.catalog.findVisibleNotice(user, input.examId, input.noticeId);
     if (!notice) throw notFound("Concurso ou edital não encontrado.");
-
     const structure = await this.repo.noticeStructure(input.noticeId);
     const validSubjects = new Set(structure.map((s) => s.noticeSubjectId));
-    const bySubject = new Map(input.subjects.map((s) => [s.noticeSubjectId, s]));
-    for (const id of bySubject.keys()) {
-      if (!validSubjects.has(id)) throw badRequest("Disciplina não pertence a este edital.");
+    for (const s of input.subjects) {
+      if (!validSubjects.has(s.noticeSubjectId)) throw badRequest("Disciplina não pertence a este edital.");
     }
     if (!input.subjects.some((s) => s.active)) throw badRequest("Ative ao menos uma disciplina.");
+    return structure;
+  }
 
-    const current = await this.repo.activeGoal(user.id);
-    const sameNotice = current?.noticeId === input.noticeId;
+  private goalValues(input: GoalInput) {
+    return {
+      examId: input.examId,
+      noticeId: input.noticeId,
+      positionId: input.positionId ?? null,
+      targetExamDate: input.targetExamDate ?? null,
+      weeklyAvailability: input.weeklyAvailability,
+      blockMinutes: input.blockMinutes,
+      priorityWeights: input.priorityWeights ?? null,
+      ...(input.reviewIntervals ? { reviewIntervals: input.reviewIntervals } : {}),
+    };
+  }
 
-    await this.db.transaction(async (tx) => {
-      let goalId: string;
-      const values = {
-        examId: input.examId,
-        noticeId: input.noticeId,
-        positionId: input.positionId ?? null,
-        targetExamDate: input.targetExamDate ?? null,
-        weeklyAvailability: input.weeklyAvailability,
-        blockMinutes: input.blockMinutes,
-        priorityWeights: input.priorityWeights ?? null,
-        ...(input.reviewIntervals ? { reviewIntervals: input.reviewIntervals } : {}),
-      };
+  /** Adiciona um concurso aos estudos do usuário e gera o primeiro ciclo dele. */
+  async createGoal(user: CurrentUser, input: GoalInput): Promise<PlanState & { goalId: string }> {
+    const structure = await this.validateGoalInput(user, input);
+    if (await this.repo.openGoalForNotice(user.id, input.noticeId)) {
+      throw conflict("Você já estuda este concurso. Abra-o em Meus concursos para editar o plano.");
+    }
+    if ((await this.repo.countActiveGoals(user.id)) >= MAX_ACTIVE_GOALS) {
+      throw conflict(
+        `Você já tem ${MAX_ACTIVE_GOALS} concursos ativos. Pause ou encerre um deles para adicionar outro.`,
+      );
+    }
 
-      if (current && sameNotice) {
-        // Mesmo edital: atualiza as configurações e mantém o histórico de estudo dos assuntos.
-        goalId = current.id;
-        await tx
-          .update(userExamGoals)
-          .set(values)
-          .where(and(eq(userExamGoals.id, goalId), eq(userExamGoals.userId, user.id)));
-      } else {
-        if (current) {
-          await tx.update(userExamGoals).set({ isActive: false }).where(eq(userExamGoals.id, current.id));
-          await this.closeActiveCycle(tx, user.id, current.id);
-        }
+    let goalId = "";
+    try {
+      await this.db.transaction(async (tx) => {
         const [created] = await tx
           .insert(userExamGoals)
-          .values({ userId: user.id, ...values })
+          .values({ userId: user.id, ...this.goalValues(input) })
           .returning({ id: userExamGoals.id });
         if (!created) throw new Error("Falha ao criar objetivo.");
         goalId = created.id;
@@ -152,40 +204,111 @@ export class PlanService {
           .insert(userTopicStates)
           .values(structure.map((s) => ({ userId: user.id, goalId, noticeTopicId: s.noticeTopicId })))
           .onConflictDoNothing();
-      }
+        await this.applySubjects(tx, user.id, goalId, structure, input);
+      });
+    } catch (err) {
+      // Duas requisições simultâneas para o mesmo edital: o índice único barra a segunda.
+      if (isUniqueViolation(err)) throw conflict("Você já estuda este concurso.");
+      throw err;
+    }
+    return { goalId, ...(await this.regenerate(user, goalId, "replace")) };
+  }
 
-      // Ativação e autoavaliação por disciplina (aplicada a todos os assuntos dela).
-      for (const [noticeSubjectId, subject] of bySubject) {
-        const topicIds = structure
-          .filter((s) => s.noticeSubjectId === noticeSubjectId)
-          .map((s) => s.noticeTopicId);
-        if (topicIds.length === 0) continue;
-        await tx
-          .update(userTopicStates)
-          .set({ isActive: subject.active, selfAssessment: subject.selfAssessment })
-          .where(
-            and(
-              eq(userTopicStates.userId, user.id),
-              eq(userTopicStates.goalId, goalId),
-              inArray(userTopicStates.noticeTopicId, topicIds),
-            ),
-          );
-      }
+  /** Atualiza as configurações do plano de um concurso (mesmo edital) e recalcula o ciclo. */
+  async updateGoal(user: CurrentUser, goalId: string, input: GoalInput): Promise<PlanState> {
+    const goal = await this.repo.goalById(user.id, goalId);
+    if (!goal || goal.status === "encerrado") throw notFound("Concurso não encontrado nos seus estudos.");
+    if (goal.noticeId !== input.noticeId || goal.examId !== input.examId) {
+      throw badRequest("Para estudar outro edital, adicione um novo concurso.");
+    }
+    const structure = await this.validateGoalInput(user, input);
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(userExamGoals)
+        .set(this.goalValues(input))
+        .where(and(eq(userExamGoals.id, goalId), eq(userExamGoals.userId, user.id)));
+      await this.applySubjects(tx, user.id, goalId, structure, input);
     });
+    if (goal.status !== "ativo") return { cycle: null, issues: [] };
+    return this.regenerate(user, goalId, "replace");
+  }
 
-    return this.regenerate(user, "replace");
+  /** Pausar ou encerrar fecha o ciclo (pendências viram histórico); reativar gera um ciclo novo. */
+  async setGoalStatus(user: CurrentUser, goalId: string, status: GoalStatus): Promise<GoalSummary> {
+    const goal = await this.repo.goalById(user.id, goalId);
+    if (!goal) throw notFound("Concurso não encontrado nos seus estudos.");
+    if (goal.status === "encerrado" && status !== "encerrado") {
+      if (await this.repo.openGoalForNotice(user.id, goal.noticeId)) {
+        throw conflict("Você já estuda este concurso em outro plano aberto.");
+      }
+    }
+    if (status === "ativo" && goal.status !== "ativo") {
+      if ((await this.repo.countActiveGoals(user.id, goalId)) >= MAX_ACTIVE_GOALS) {
+        throw conflict(`Você já tem ${MAX_ACTIVE_GOALS} concursos ativos. Pause um deles antes.`);
+      }
+    }
+    if (status !== goal.status) {
+      await this.db.transaction(async (tx) => {
+        await tx
+          .update(userExamGoals)
+          .set({ status })
+          .where(and(eq(userExamGoals.id, goalId), eq(userExamGoals.userId, user.id)));
+        if (status !== "ativo") await this.closeActiveCycle(tx, user.id, goalId);
+      });
+      if (status === "ativo") await this.regenerate(user, goalId, "replace");
+    }
+    const summary = (await this.listGoals(user)).find((g) => g.id === goalId);
+    if (!summary) throw notFound();
+    return summary;
+  }
+
+  /** Ativação e autoavaliação por disciplina (aplicada a todos os assuntos dela). */
+  private async applySubjects(
+    tx: Transaction,
+    userId: string,
+    goalId: string,
+    structure: { noticeSubjectId: string; noticeTopicId: string }[],
+    input: GoalInput,
+  ): Promise<void> {
+    for (const subject of input.subjects) {
+      const topicIds = structure
+        .filter((s) => s.noticeSubjectId === subject.noticeSubjectId)
+        .map((s) => s.noticeTopicId);
+      if (topicIds.length === 0) continue;
+      await tx
+        .update(userTopicStates)
+        .set({ isActive: subject.active, selfAssessment: subject.selfAssessment })
+        .where(
+          and(
+            eq(userTopicStates.userId, userId),
+            eq(userTopicStates.goalId, goalId),
+            inArray(userTopicStates.noticeTopicId, topicIds),
+          ),
+        );
+    }
   }
 
   // ---------- Ciclo ----------
 
-  /** Ciclo atual. Se o ciclo venceu, gera o próximo levando as pendências (sem atraso infinito: o que não cabe vira conflito). */
-  async current(user: CurrentUser): Promise<PlanState> {
-    const goal = await this.repo.activeGoal(user.id);
-    if (!goal) return { cycle: null, issues: [] };
+  /** Ciclo atual do concurso. Se venceu, gera o próximo levando as pendências (o que não cabe vira conflito). */
+  async current(user: CurrentUser, goalId?: string): Promise<PlanState> {
+    const goal = await this.repo.activeGoal(user.id, goalId);
+    if (!goal) {
+      if (goalId) throw notFound("Concurso não encontrado nos seus estudos.");
+      return { cycle: null, issues: [] };
+    }
+    if (goal.status !== "ativo") {
+      return {
+        cycle: null,
+        issues: [
+          { code: "GOAL_PAUSED", message: "Este concurso está pausado. Reative-o para gerar o ciclo." },
+        ],
+      };
+    }
     const active = await this.repo.activeCycle(user.id, goal.id);
     if (active && active.endDate >= this.today(user))
       return { cycle: await this.toDto(user, goal, active), issues: [] };
-    return this.regenerate(user, active ? "rollover" : "replace");
+    return this.regenerate(user, goal.id, active ? "rollover" : "replace");
   }
 
   /**
@@ -193,9 +316,10 @@ export class PlanService {
    * "rollover": ciclo venceu; pendências entram primeiro no novo ciclo. Em ambos, tarefas concluídas
    * e puladas ficam intactas; só as pendentes do ciclo anterior viram "cancelada" (histórico preservado).
    */
-  async regenerate(user: CurrentUser, mode: "replace" | "rollover"): Promise<PlanState> {
-    const goal = await this.repo.activeGoal(user.id);
-    if (!goal) throw notFound("Você ainda não configurou um concurso-alvo.");
+  async regenerate(user: CurrentUser, goalId: string, mode: "replace" | "rollover"): Promise<PlanState> {
+    const goal = await this.repo.activeGoal(user.id, goalId);
+    if (!goal) throw notFound("Concurso não encontrado nos seus estudos.");
+    if (goal.status !== "ativo") throw conflict("Este concurso está pausado. Reative-o para gerar o ciclo.");
     const today = this.today(user);
     const states = (await this.repo.topicStates(user.id, goal.id)).filter((s) => s.isActive);
     const previous = await this.repo.activeCycle(user.id, goal.id);
@@ -274,11 +398,7 @@ export class PlanService {
   }
 
   /** Encerra o ciclo ativo: pendentes viram "cancelada"; concluídas/puladas ficam como estão. */
-  private async closeActiveCycle(
-    tx: Parameters<Parameters<PlanRepository["db"]["transaction"]>[0]>[0],
-    userId: string,
-    goalId: string,
-  ): Promise<string | null> {
+  private async closeActiveCycle(tx: Transaction, userId: string, goalId: string): Promise<string | null> {
     const [active] = await tx
       .update(studyCycles)
       .set({ status: "encerrado" })
@@ -296,15 +416,13 @@ export class PlanService {
     return active.id;
   }
 
-  private examDateOf(
-    goal: GoalRow & { catalogExamDate: string | null; datesConfirmed: boolean },
-  ): string | null {
+  private examDateOf(goal: GoalWithExam): string | null {
     return goal.targetExamDate ?? (goal.datesConfirmed ? goal.catalogExamDate : null);
   }
 
   private async buildInput(
     user: CurrentUser,
-    goal: GoalRow & { catalogExamDate: string | null; datesConfirmed: boolean },
+    goal: GoalWithExam,
     states: Awaited<ReturnType<PlanRepository["topicStates"]>>,
     today: string,
     carryOver: CarryOverTask[],
@@ -360,11 +478,7 @@ export class PlanService {
     };
   }
 
-  private async toDto(
-    user: CurrentUser,
-    goal: GoalRow & { catalogExamDate: string | null; datesConfirmed: boolean },
-    cycle: CycleRow,
-  ): Promise<Cycle> {
+  private async toDto(user: CurrentUser, goal: GoalWithExam, cycle: CycleRow): Promise<Cycle> {
     const rows = await this.repo.cycleTasks(user.id, cycle.id);
     const examDate = this.examDateOf(goal);
     return {
@@ -481,8 +595,8 @@ export class PlanService {
     if (input.taskId && input.completeTask)
       await this.updateTask(user, input.taskId, { status: "concluida" });
     else if (noticeTopicId) {
-      const goal = await this.repo.activeGoal(user.id);
-      if (goal) await this.repo.markTopicStudied(user.id, noticeTopicId, goal.id, false);
+      // Sessão avulsa: o assunto conta como estudado em todos os concursos que o cobram.
+      await this.repo.markTopicStudied(user.id, noticeTopicId, null, false);
     }
     const [row] = (await this.repo.listSessions(user.id)).filter((s) => s.session.id === created.id);
     return toSessionDto(created, row?.topicName ?? null);

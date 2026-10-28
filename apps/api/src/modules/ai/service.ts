@@ -92,7 +92,7 @@ export function toImportInput(ai: AiNotice): NoticeImportInput {
 /** Dados agregados que o resumo estratégico usa (vêm do Raio-X e do ciclo; nada pessoal). */
 export interface StrategySources {
   xrayForGoal(goal: GoalRow): Promise<BoardXray | null>;
-  currentCycle(user: CurrentUser): Promise<Cycle | null>;
+  currentCycle(user: CurrentUser, goalId: string): Promise<Cycle | null>;
 }
 
 export class AiService {
@@ -108,14 +108,14 @@ export class AiService {
    * Resumo estratégico do plano. A IA só EXPLICA a prioridade (que continua determinística),
    * usando as estatísticas do Raio-X e as justificativas já calculadas como fonte.
    */
-  async planSummary(user: CurrentUser) {
+  async planSummary(user: CurrentUser, goalId?: string) {
     const provider = await this.requireProvider();
-    const goal = await this.planRepo.activeGoal(user.id);
+    const goal = await this.planRepo.activeGoal(user.id, goalId);
     if (!goal || !this.strategy)
       throw new AppError(400, "VALIDATION_ERROR", "Configure seu plano antes de pedir o resumo.");
     const [xray, cycle] = await Promise.all([
       this.strategy.xrayForGoal(goal),
-      this.strategy.currentCycle(user),
+      this.strategy.currentCycle(user, goal.id),
     ]);
     const input: PlanSummaryInput = {
       examTitle: goal.examTitle,

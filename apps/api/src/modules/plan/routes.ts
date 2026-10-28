@@ -4,6 +4,8 @@ import {
   cycleSchema,
   goalInputSchema,
   goalSchema,
+  goalStatusInputSchema,
+  goalSummarySchema,
   planMessageSchema,
   sessionInputSchema,
   sessionSchema,
@@ -27,35 +29,75 @@ export function registerPlanRoutes(app: FastifyInstance, _db: Database, service:
   const opts = { preHandler: requireAuth };
 
   r.get(
-    "/api/goal",
-    { ...opts, schema: { tags: ["plan"], response: { 200: goalSchema, ...errors } } },
+    "/api/goals",
+    { ...opts, schema: { tags: ["plan"], response: { 200: z.array(goalSummarySchema), ...errors } } },
+    async (request) => service.listGoals(requireUser(request)),
+  );
+
+  // Adiciona um concurso aos estudos (onboarding) e gera o primeiro ciclo dele.
+  r.post(
+    "/api/goals",
+    {
+      ...opts,
+      schema: {
+        tags: ["plan"],
+        body: goalInputSchema,
+        response: { 201: planStateSchema.extend({ goalId: z.uuid() }), ...errors },
+      },
+    },
+    async (request, reply) =>
+      reply.status(201).send(await service.createGoal(requireUser(request), request.body)),
+  );
+
+  r.get(
+    "/api/goals/:id",
+    { ...opts, schema: { tags: ["plan"], params: idParams, response: { 200: goalSchema, ...errors } } },
     async (request) => {
-      const goal = await service.goal(requireUser(request));
-      if (!goal) throw notFound("Você ainda não configurou um concurso-alvo.");
+      const goal = await service.goal(requireUser(request), request.params.id);
+      if (!goal) throw notFound("Concurso não encontrado nos seus estudos.");
       return goal;
     },
   );
 
-  // Cria o objetivo (onboarding) ou atualiza as configurações. Sempre recalcula o ciclo.
+  // Edita o plano de um concurso (mesmo edital). Sempre recalcula o ciclo se estiver ativo.
   r.put(
-    "/api/goal",
+    "/api/goals/:id",
     {
       ...opts,
-      schema: { tags: ["plan"], body: goalInputSchema, response: { 200: planStateSchema, ...errors } },
+      schema: {
+        tags: ["plan"],
+        params: idParams,
+        body: goalInputSchema,
+        response: { 200: planStateSchema, ...errors },
+      },
     },
-    async (request) => service.saveGoal(requireUser(request), request.body),
+    async (request) => service.updateGoal(requireUser(request), request.params.id, request.body),
+  );
+
+  r.patch(
+    "/api/goals/:id/status",
+    {
+      ...opts,
+      schema: {
+        tags: ["plan"],
+        params: idParams,
+        body: goalStatusInputSchema,
+        response: { 200: goalSummarySchema, ...errors },
+      },
+    },
+    async (request) => service.setGoalStatus(requireUser(request), request.params.id, request.body.status),
   );
 
   r.get(
-    "/api/plan/current",
-    { ...opts, schema: { tags: ["plan"], response: { 200: planStateSchema, ...errors } } },
-    async (request) => service.current(requireUser(request)),
+    "/api/goals/:id/plan",
+    { ...opts, schema: { tags: ["plan"], params: idParams, response: { 200: planStateSchema, ...errors } } },
+    async (request) => service.current(requireUser(request), request.params.id),
   );
 
   r.post(
-    "/api/plan/recalculate",
-    { ...opts, schema: { tags: ["plan"], response: { 200: planStateSchema, ...errors } } },
-    async (request) => service.regenerate(requireUser(request), "replace"),
+    "/api/goals/:id/plan/recalculate",
+    { ...opts, schema: { tags: ["plan"], params: idParams, response: { 200: planStateSchema, ...errors } } },
+    async (request) => service.regenerate(requireUser(request), request.params.id, "replace"),
   );
 
   r.patch(

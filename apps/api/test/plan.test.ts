@@ -1,5 +1,5 @@
 import { seedSampleData, studyTasks } from "@aprovaai/db";
-import type { Cycle, ExamDetail, GoalInput } from "@aprovaai/shared";
+import type { Cycle, ExamDetail, GoalInput, Task } from "@aprovaai/shared";
 import { addDays, todayIn } from "@aprovaai/core";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -54,8 +54,9 @@ function goalInput(exam: ExamDetail, overrides: Partial<GoalInput> = {}): GoalIn
 
 async function onboard(client: TestClient, overrides: Partial<GoalInput> = {}) {
   const exam = await sampleExam(client);
-  const res = await client.request("PUT", "/api/goal", goalInput(exam, overrides));
-  return { exam, res, state: res.json() as { cycle: Cycle | null; issues: { code: string }[] } };
+  const res = await client.post("/api/goals", goalInput(exam, overrides));
+  const state = res.json() as { goalId: string; cycle: Cycle | null; issues: { code: string }[] };
+  return { exam, res, state, goalId: state.goalId };
 }
 
 describe("catálogo", () => {
@@ -123,8 +124,8 @@ describe("catálogo", () => {
 describe("onboarding e ciclo", () => {
   it("gera o primeiro ciclo persistido, com justificativa e sem estourar a disponibilidade", async () => {
     const { client } = await createVerifiedUser(ctx, "a@exemplo.com");
-    const { res, state } = await onboard(client);
-    expect(res.statusCode).toBe(200);
+    const { res, state, goalId } = await onboard(client);
+    expect(res.statusCode).toBe(201);
     expect(state.issues).toEqual([]);
     const cycle = state.cycle as Cycle;
     expect(cycle.phase).toBe("base");
@@ -141,13 +142,13 @@ describe("onboarding e ciclo", () => {
     // Todas as 9 disciplinas ativas têm ao menos um bloco (14h na semana comportam).
     expect(new Set(cycle.tasks.map((t) => t.subjectName)).size).toBe(9);
 
-    const again = (await client.get("/api/plan/current")).json();
+    const again = (await client.get(`/api/goals/${goalId}/plan`)).json();
     expect(again.cycle.id).toBe(cycle.id);
   });
 
   it("concluir, pular e recalcular nunca apaga o histórico", async () => {
     const { client } = await createVerifiedUser(ctx, "a@exemplo.com");
-    const { state } = await onboard(client);
+    const { state, goalId } = await onboard(client);
     const [first, second] = (state.cycle as Cycle).tasks;
     if (!first || !second) throw new Error("Ciclo sem tarefas suficientes.");
 
@@ -158,7 +159,7 @@ describe("onboarding e ciclo", () => {
       "pulada",
     );
 
-    const recalculated = (await client.post("/api/plan/recalculate")).json();
+    const recalculated = (await client.post(`/api/goals/${goalId}/plan/recalculate`)).json();
     expect(recalculated.cycle.number).toBe(2);
 
     const [done] = await ctx.db.select().from(studyTasks).where(eq(studyTasks.id, first.id));
@@ -179,7 +180,7 @@ describe("onboarding e ciclo", () => {
 
   it("reagenda arrastando para outro dia, mas não para um dia cheio", async () => {
     const { client } = await createVerifiedUser(ctx, "a@exemplo.com");
-    const { state } = await onboard(client);
+    const { state, goalId } = await onboard(client);
     const tasks = (state.cycle as Cycle).tasks;
     const task = tasks.find((t) => t.suggestedDate === today()) ?? tasks[0];
     if (!task) throw new Error("sem tarefa");
@@ -203,7 +204,7 @@ describe("onboarding e ciclo", () => {
 
   it("sessão de estudo pelo cronômetro conclui a tarefa e marca o assunto como estudado", async () => {
     const { client } = await createVerifiedUser(ctx, "a@exemplo.com");
-    const { state } = await onboard(client);
+    const { state, goalId } = await onboard(client);
     const task = (state.cycle as Cycle).tasks[0];
     const now = new Date();
     const res = await client.post("/api/sessions", {
@@ -216,7 +217,7 @@ describe("onboarding e ciclo", () => {
     });
     expect(res.statusCode).toBe(201);
     expect(res.json().topicName).toBe(task?.topicName);
-    const current = (await client.get("/api/plan/current")).json();
+    const current = (await client.get(`/api/goals/${goalId}/plan`)).json();
     expect(current.cycle.tasks.find((t: { id: string }) => t.id === task?.id).status).toBe("concluida");
     expect((await client.get("/api/sessions")).json()).toHaveLength(1);
   });
@@ -224,17 +225,15 @@ describe("onboarding e ciclo", () => {
   it("casos de borda viram mensagens claras", async () => {
     const { client } = await createVerifiedUser(ctx, "a@exemplo.com");
     const zero = { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0 };
-    expect((await onboard(client, { weeklyAvailability: zero })).state.issues[0]?.code).toBe(
-      "NO_AVAILABILITY",
-    );
-    expect((await onboard(client, { targetExamDate: addDays(today(), -3) })).state.issues[0]?.code).toBe(
-      "EXAM_IN_PAST",
-    );
+    const first = await onboard(client, { weeklyAvailability: zero });
+    expect(first.state.issues[0]?.code).toBe("NO_AVAILABILITY");
+    const past = goalInput(first.exam, { targetExamDate: addDays(today(), -3) });
+    const updated = (await client.request("PUT", `/api/goals/${first.goalId}`, past)).json();
+    expect(updated.issues[0]?.code).toBe("EXAM_IN_PAST");
 
-    const exam = await sampleExam(client);
-    const none = goalInput(exam);
+    const none = goalInput(first.exam);
     none.subjects = none.subjects.map((s) => ({ ...s, active: false }));
-    expect((await client.request("PUT", "/api/goal", none)).statusCode).toBe(400);
+    expect((await client.request("PUT", `/api/goals/${first.goalId}`, none)).statusCode).toBe(400);
   });
 
   it("prova perto entra na reta final com simulado", async () => {
@@ -243,5 +242,88 @@ describe("onboarding e ciclo", () => {
     expect(state.cycle?.phase).toBe("reta_final");
     expect(state.cycle?.daysToExam).toBe(20);
     expect(state.cycle?.tasks.filter((t) => t.type === "simulado")).toHaveLength(1);
+  });
+});
+
+describe("vários concursos", () => {
+  /** Cria um concurso privado com edital próprio (para ter um segundo edital no teste). */
+  async function privateExam(client: TestClient, title: string): Promise<ExamDetail> {
+    const res = await client.post("/api/catalog/import", {
+      target: "private",
+      data: {
+        exam: {
+          title,
+          organization: { name: `Órgão ${title}`, sphere: "estadual", uf: "SC" },
+          sphere: "estadual",
+          uf: "SC",
+          situation: "edital_publicado",
+        },
+        notice: { title: `Edital ${title}` },
+        subjects: [{ name: `Matéria ${title}`, topics: [{ name: "Assunto 1" }, { name: "Assunto 2" }] }],
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    return (await client.get(`/api/catalog/exams/${res.json().examId}`)).json();
+  }
+
+  it("estuda dois concursos com ciclos separados e lista os dois em Meus concursos", async () => {
+    const { client } = await createVerifiedUser(ctx, "a@exemplo.com");
+    const trt = await onboard(client);
+    const other = await privateExam(client, "PC SC");
+    const second = await client.post("/api/goals", goalInput(other));
+    expect(second.statusCode).toBe(201);
+    const secondId = second.json().goalId as string;
+
+    const planA = (await client.get(`/api/goals/${trt.goalId}/plan`)).json();
+    const planB = (await client.get(`/api/goals/${secondId}/plan`)).json();
+    expect(planA.cycle.id).not.toBe(planB.cycle.id);
+    expect(new Set(planB.cycle.tasks.map((t: Task) => t.subjectName))).toEqual(new Set(["Matéria PC SC"]));
+
+    const goals = (await client.get("/api/goals")).json();
+    expect(goals).toHaveLength(2);
+    expect(goals.every((g: { status: string }) => g.status === "ativo")).toBe(true);
+    const card = goals.find((g: { id: string }) => g.id === secondId);
+    expect(card.uf).toBe("SC");
+    expect(card.week.plannedMinutes).toBeGreaterThan(0);
+  });
+
+  it("não deixa estudar o mesmo edital duas vezes nem passar de 3 ativos", async () => {
+    const { client } = await createVerifiedUser(ctx, "a@exemplo.com");
+    const { exam } = await onboard(client);
+    expect((await client.post("/api/goals", goalInput(exam))).statusCode).toBe(409);
+
+    for (const title of ["B", "C"]) {
+      expect((await client.post("/api/goals", goalInput(await privateExam(client, title)))).statusCode).toBe(
+        201,
+      );
+    }
+    const fourth = await privateExam(client, "D");
+    expect((await client.post("/api/goals", goalInput(fourth))).statusCode).toBe(409);
+  });
+
+  it("pausar fecha o ciclo sem apagar histórico; reativar gera um ciclo novo", async () => {
+    const { client } = await createVerifiedUser(ctx, "a@exemplo.com");
+    const { state, goalId } = await onboard(client);
+    const firstCycle = (state.cycle as Cycle).id;
+
+    const paused = await client.patch(`/api/goals/${goalId}/status`, { status: "pausado" });
+    expect(paused.json().status).toBe("pausado");
+    const pausedPlan = (await client.get(`/api/goals/${goalId}/plan`)).json();
+    expect(pausedPlan.cycle).toBeNull();
+    expect(pausedPlan.issues[0].code).toBe("GOAL_PAUSED");
+    const cancelled = await ctx.db.select().from(studyTasks).where(eq(studyTasks.status, "cancelada"));
+    expect(cancelled.length).toBeGreaterThan(0);
+
+    expect((await client.patch(`/api/goals/${goalId}/status`, { status: "ativo" })).statusCode).toBe(200);
+    const resumed = (await client.get(`/api/goals/${goalId}/plan`)).json();
+    expect(resumed.cycle.id).not.toBe(firstCycle);
+  });
+
+  it("edição não troca de edital: para outro edital, adiciona outro concurso", async () => {
+    const { client } = await createVerifiedUser(ctx, "a@exemplo.com");
+    const { goalId } = await onboard(client);
+    const other = await privateExam(client, "Outro");
+    const res = await client.request("PUT", `/api/goals/${goalId}`, goalInput(other));
+    expect(res.statusCode).toBe(400);
   });
 });

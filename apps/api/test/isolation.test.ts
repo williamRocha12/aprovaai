@@ -88,17 +88,22 @@ const privateResources: PrivateResource[] = [
     setup: async (a) => {
       const cycle = await onboardSample(a);
       const task = cycle.tasks[0] as { id: string; status: string };
-      return { taskId: task.id, cycleId: cycle.id };
+      return { taskId: task.id, cycleId: cycle.id, goalId: cycle.goalId };
     },
-    attack: async (b, { taskId, cycleId }) => {
+    attack: async (b, { taskId, goalId }) => {
       expect((await b.patch(`/api/tasks/${taskId}`, { status: "concluida" })).statusCode).toBe(404);
       expect((await b.patch(`/api/tasks/${taskId}`, { suggestedDate: "2030-01-01" })).statusCode).toBe(404);
-      expect((await b.get("/api/goal")).statusCode).toBe(404);
-      const current = (await b.get("/api/plan/current")).json();
-      expect(current.cycle?.id).not.toBe(cycleId);
+      expect((await b.get(`/api/goals/${goalId}`)).statusCode).toBe(404);
+      expect((await b.get(`/api/goals/${goalId}/plan`)).statusCode).toBe(404);
+      expect((await b.post(`/api/goals/${goalId}/plan/recalculate`)).statusCode).toBe(404);
+      expect((await b.patch(`/api/goals/${goalId}/status`, { status: "encerrado" })).statusCode).toBe(404);
+      expect((await b.request("PUT", `/api/goals/${goalId}`, {})).statusCode).toBe(400);
+      expect((await b.get(`/api/goal/topics?goalId=${goalId}`)).statusCode).toBe(404);
+      expect((await b.get(`/api/dashboard?goalId=${goalId}`)).statusCode).toBe(404);
+      expect((await b.get("/api/goals")).json()).toEqual([]);
     },
-    verify: async (a, { taskId, cycleId }) => {
-      const current = (await a.get("/api/plan/current")).json();
+    verify: async (a, { taskId, cycleId, goalId }) => {
+      const current = (await a.get(`/api/goals/${goalId}/plan`)).json();
       expect(current.cycle.id).toBe(cycleId);
       expect(current.cycle.tasks.find((t: { id: string }) => t.id === taskId).status).toBe("pendente");
     },
@@ -223,13 +228,15 @@ const PRIVATE_EXAM = {
   subjects: [{ name: "Matéria da A", topics: [{ name: "Assunto da A" }] }],
 };
 
-async function onboardSample(client: TestClient): Promise<{ id: string; tasks: { id: string }[] }> {
+async function onboardSample(
+  client: TestClient,
+): Promise<{ id: string; goalId: string; tasks: { id: string }[] }> {
   await seedSampleData(ctx.db);
   const list = (await client.get("/api/catalog/exams")).json();
   const examId = list.items.find((e: { isSample: boolean }) => e.isSample).id;
   const exam = (await client.get(`/api/catalog/exams/${examId}`)).json();
   const week = { "0": 120, "1": 120, "2": 120, "3": 120, "4": 120, "5": 120, "6": 120 };
-  const res = await client.request("PUT", "/api/goal", {
+  const res = await client.post("/api/goals", {
     examId,
     noticeId: exam.notice.id,
     weeklyAvailability: week,
@@ -240,7 +247,8 @@ async function onboardSample(client: TestClient): Promise<{ id: string; tasks: {
       selfAssessment: 50,
     })),
   });
-  return res.json().cycle;
+  const state = res.json();
+  return { ...state.cycle, goalId: state.goalId };
 }
 
 describe("isolamento entre usuários", () => {

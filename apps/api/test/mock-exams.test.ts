@@ -27,7 +27,7 @@ async function onboard(client: TestClient) {
   const examId = (await client.get("/api/catalog/exams")).json().items[0].id;
   const exam = (await client.get(`/api/catalog/exams/${examId}`)).json();
   const week = { "0": 120, "1": 120, "2": 120, "3": 120, "4": 120, "5": 120, "6": 120 };
-  await client.request("PUT", "/api/goal", {
+  await client.post("/api/goals", {
     examId,
     noticeId: exam.notice.id,
     weeklyAvailability: week,

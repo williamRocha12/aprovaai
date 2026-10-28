@@ -8,6 +8,8 @@ export const createMockExamSchema = z.object({
   questionCount: z.number().int().min(5).max(120),
   timeLimitMin: z.number().int().min(5).max(600).nullable().optional(),
   preferUnanswered: z.boolean().default(true),
+  /** Concurso cujo plano define as disciplinas padrão; sem ele, o ativo mais recente. */
+  goalId: z.uuid().optional(),
 });
 export type CreateMockExamInput = z.input<typeof createMockExamSchema>;
 

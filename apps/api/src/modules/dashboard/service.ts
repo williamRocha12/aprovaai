@@ -21,6 +21,7 @@ import {
 } from "@aprovaai/db";
 import { ERROR_TYPES, type Dashboard, type ErrorTypeValue } from "@aprovaai/shared";
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
+import { notFound } from "../../lib/errors";
 import type { CurrentUser } from "../../plugins/auth-context";
 import type { PlanRepository } from "../plan/repository";
 
@@ -33,7 +34,7 @@ export class DashboardService {
     private readonly planRepo: PlanRepository,
   ) {}
 
-  async get(user: CurrentUser): Promise<Dashboard> {
+  async get(user: CurrentUser, goalId?: string): Promise<Dashboard> {
     const tz = user.timezone;
     const today = todayIn(tz);
     const weekAgo = addDays(today, -6);
@@ -41,20 +42,12 @@ export class DashboardService {
       sql<string>`to_char((${column} at time zone ${tz})::date, 'YYYY-MM-DD')`;
     const since400 = new Date(Date.now() - 400 * 86_400_000);
 
-    const [goalRow] = await this.db
-      .select({
-        goal: userExamGoals,
-        examTitle: exams.title,
-        isSample: exams.isSample,
-        examDate: exams.examDate,
-        datesConfirmed: exams.datesConfirmed,
-      })
-      .from(userExamGoals)
-      .innerJoin(exams, eq(exams.id, userExamGoals.examId))
-      .where(and(eq(userExamGoals.userId, user.id), eq(userExamGoals.isActive, true)));
-    const goal = goalRow?.goal ?? null;
+    // Painel de um concurso: plano, cobertura e prazo dele; questões, revisões e constância são do usuário.
+    const goalRow = await this.planRepo.activeGoal(user.id, goalId);
+    if (goalId && !goalRow) throw notFound("Concurso não encontrado nos seus estudos.");
+    const goal = goalRow;
     const examDate = goal
-      ? (goal.targetExamDate ?? (goalRow?.datesConfirmed ? goalRow.examDate : null))
+      ? (goal.targetExamDate ?? (goal.datesConfirmed ? goal.catalogExamDate : null))
       : null;
 
     const [sessionDays, attemptRows, completedTaskDays] = await Promise.all([

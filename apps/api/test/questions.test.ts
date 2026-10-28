@@ -212,7 +212,7 @@ describe("integração com o planejador e dashboard", () => {
     const examId = list.items[0].id;
     const exam = (await client.get(`/api/catalog/exams/${examId}`)).json();
     const week = { "0": 120, "1": 120, "2": 120, "3": 120, "4": 120, "5": 120, "6": 120 };
-    await client.request("PUT", "/api/goal", {
+    const res = await client.post("/api/goals", {
       examId,
       noticeId: exam.notice.id,
       weeklyAvailability: week,
@@ -223,11 +223,12 @@ describe("integração com o planejador e dashboard", () => {
         selfAssessment: 50,
       })),
     });
+    return res.json().goalId as string;
   }
 
   it("revisão vencida vira o primeiro bloco do ciclo recalculado", async () => {
     const { client, userId } = await createVerifiedUser(ctx, "a@exemplo.com");
-    await onboard(client);
+    const goalId = await onboard(client);
     const [item] = await listQuestions(client);
     const q = await detail(client, item?.id ?? "");
     await answerWrong(client, q);
@@ -236,7 +237,7 @@ describe("integração com o planejador e dashboard", () => {
       .set({ dueDate: addDays(today(), -2) })
       .where(eq(reviewItems.userId, userId));
 
-    const plan = (await client.post("/api/plan/recalculate")).json();
+    const plan = (await client.post(`/api/goals/${goalId}/plan/recalculate`)).json();
     const first = plan.cycle.tasks[0];
     expect(first.type).toBe("revisao");
     expect(first.topicName).toBe(q.topicName);

@@ -38,7 +38,7 @@ beforeEach(async () => {
 async function onboard(client: TestClient) {
   const examId = (await client.get("/api/catalog/exams")).json().items[0].id;
   const exam = (await client.get(`/api/catalog/exams/${examId}`)).json();
-  await client.request("PUT", "/api/goal", {
+  await client.post("/api/goals", {
     examId,
     noticeId: exam.notice.id,
     weeklyAvailability: { "0": 60, "1": 60, "2": 60, "3": 60, "4": 60, "5": 60, "6": 60 },

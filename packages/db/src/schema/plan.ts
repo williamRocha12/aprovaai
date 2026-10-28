@@ -24,6 +24,8 @@ import { examNotices, examPositions, exams, noticeTopics } from "./catalog";
 export const topicStudyStatus = pgEnum("topic_study_status", ["nao_iniciado", "em_andamento", "coberto"]);
 export const cyclePhase = pgEnum("cycle_phase", ["base", "inicial", "intermediaria", "reta_final"]);
 export const cycleStatus = pgEnum("cycle_status", ["ativo", "encerrado"]);
+/** Situação de cada concurso que o usuário estuda: vários podem estar ativos ao mesmo tempo. */
+export const goalStatus = pgEnum("goal_status", ["ativo", "pausado", "encerrado"]);
 export const taskType = pgEnum("task_type", [
   "teoria",
   "questoes",
@@ -78,13 +80,15 @@ export const userExamGoals = pgTable(
       .array()
       .notNull()
       .default(sql`'{1,7,30}'::integer[]`),
-    isActive: boolean().notNull().default(true),
+    status: goalStatus().notNull().default("ativo"),
     ...timestamps,
   },
   (t) => [
-    uniqueIndex("user_exam_goals_one_active")
-      .on(t.userId)
-      .where(sql`${t.isActive}`),
+    // O mesmo edital não pode ser estudado em dois objetivos abertos ao mesmo tempo.
+    uniqueIndex("user_exam_goals_open_notice")
+      .on(t.userId, t.noticeId)
+      .where(sql`${t.status} <> 'encerrado'`),
+    index("user_exam_goals_user_idx").on(t.userId, t.status),
     check("user_exam_goals_block_range", sql`${t.blockMinutes} BETWEEN 15 AND 240`),
   ],
 );

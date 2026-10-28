@@ -20,6 +20,7 @@ import {
   quickRegisterSchema,
   reportInputSchema,
   reviewsResponseSchema,
+  goalQuerySchema,
 } from "@aprovaai/shared";
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
@@ -286,8 +287,15 @@ export function registerQuestionRoutes(
   // --- Dashboard e assuntos do plano (para filtros e cadastro) ---
   r.get(
     "/api/dashboard",
-    { ...opts, schema: { tags: ["dashboard"], response: { 200: dashboardSchema, ...errors } } },
-    async (request) => dashboard.get(requireUser(request)),
+    {
+      ...opts,
+      schema: {
+        tags: ["dashboard"],
+        querystring: goalQuerySchema,
+        response: { 200: dashboardSchema, ...errors },
+      },
+    },
+    async (request) => dashboard.get(requireUser(request), request.query.goalId),
   );
 
   r.get(
@@ -296,6 +304,7 @@ export function registerQuestionRoutes(
       ...opts,
       schema: {
         tags: ["plan"],
+        querystring: goalQuerySchema,
         response: {
           200: z.array(
             z.object({
@@ -312,7 +321,7 @@ export function registerQuestionRoutes(
     },
     async (request) => {
       const user = requireUser(request);
-      const goal = await plan.repo.activeGoal(user.id);
+      const goal = await plan.repo.activeGoal(user.id, request.query.goalId);
       if (!goal) throw notFound("Você ainda não configurou um concurso-alvo.");
       const states = await plan.repo.topicStates(user.id, goal.id);
       return states.map((s) => ({

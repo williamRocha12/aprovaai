@@ -51,8 +51,19 @@ export const goalInputSchema = z.object({
 });
 export type GoalInput = z.infer<typeof goalInputSchema>;
 
+export const GOAL_STATUSES = ["ativo", "pausado", "encerrado"] as const;
+export type GoalStatus = (typeof GOAL_STATUSES)[number];
+export const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
+  ativo: "Ativo",
+  pausado: "Pausado",
+  encerrado: "Encerrado",
+};
+/** Mais concursos ativos que isso dilui o estudo; pausados e encerrados não contam. */
+export const MAX_ACTIVE_GOALS = 3;
+
 export const goalSchema = z.object({
   id: z.uuid(),
+  status: z.enum(GOAL_STATUSES),
   examId: z.uuid(),
   examTitle: z.string(),
   noticeId: z.uuid(),
@@ -72,6 +83,31 @@ export const goalSchema = z.object({
   ),
 });
 export type Goal = z.infer<typeof goalSchema>;
+
+/** Cartão de "Meus concursos": números calculados dos registros do usuário naquele concurso. */
+export const goalSummarySchema = z.object({
+  id: z.uuid(),
+  status: z.enum(GOAL_STATUSES),
+  examId: z.uuid(),
+  examTitle: z.string(),
+  organization: z.string(),
+  board: z.string().nullable(),
+  uf: z.string().nullable(),
+  isSample: z.boolean(),
+  examDate: z.string().nullable(),
+  daysToExam: z.number().int().nullable(),
+  weeklyMinutes: z.number().int(),
+  week: z.object({ plannedMinutes: z.number().int(), completedMinutes: z.number().int() }),
+  coverage: z.object({ covered: z.number().int(), total: z.number().int() }),
+  pendingToday: z.number().int(),
+  createdAt: z.string(),
+});
+export type GoalSummary = z.infer<typeof goalSummarySchema>;
+
+export const goalStatusInputSchema = z.object({ status: z.enum(GOAL_STATUSES) });
+
+/** Endpoints que dependem de um concurso aceitam `goalId`; sem ele, usam o ativo mais recente. */
+export const goalQuerySchema = z.object({ goalId: z.uuid().optional() });
 
 export const planMessageSchema = z.object({
   code: z.string(),

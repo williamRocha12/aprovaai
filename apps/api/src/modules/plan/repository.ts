@@ -1,7 +1,9 @@
 // Acesso a dados do plano. TODA função recebe userId e filtra por ele (isolamento entre usuários).
 import {
+  boards,
   examNotices,
   exams,
+  organizations,
   noticeSubjects,
   noticeTopics,
   studyCycles,
@@ -13,11 +15,34 @@ import {
   userTopicStates,
   type Database,
 } from "@aprovaai/db";
-import { and, asc, desc, eq, gte, inArray, lte, max, notInArray, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  lte,
+  max,
+  ne,
+  notInArray,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 
 export type GoalRow = typeof userExamGoals.$inferSelect;
 export type CycleRow = typeof studyCycles.$inferSelect;
 export type TaskRow = typeof studyTasks.$inferSelect;
+export type GoalWithExam = GoalRow & {
+  examTitle: string;
+  catalogExamDate: string | null;
+  datesConfirmed: boolean;
+  organization: string;
+  board: string | null;
+  uf: string | null;
+  isSample: boolean;
+};
 
 export interface TopicStateRow {
   noticeTopicId: string;
@@ -37,29 +62,89 @@ export interface TopicStateRow {
 export class PlanRepository {
   constructor(readonly db: Database) {}
 
-  async activeGoal(
-    userId: string,
-  ): Promise<
-    (GoalRow & { examTitle: string; catalogExamDate: string | null; datesConfirmed: boolean }) | null
-  > {
-    const [row] = await this.db
+  private async goalQuery(userId: string, extra: SQL | undefined, limit?: number) {
+    const query = this.db
       .select({
         goal: userExamGoals,
         examTitle: exams.title,
         catalogExamDate: exams.examDate,
         datesConfirmed: exams.datesConfirmed,
+        organization: organizations.name,
+        board: boards.name,
+        uf: exams.uf,
+        isSample: exams.isSample,
       })
       .from(userExamGoals)
       .innerJoin(exams, eq(exams.id, userExamGoals.examId))
-      .where(and(eq(userExamGoals.userId, userId), eq(userExamGoals.isActive, true)));
-    return row
-      ? {
-          ...row.goal,
-          examTitle: row.examTitle,
-          catalogExamDate: row.catalogExamDate,
-          datesConfirmed: row.datesConfirmed,
-        }
-      : null;
+      .innerJoin(organizations, eq(organizations.id, exams.organizationId))
+      .leftJoin(boards, eq(boards.id, exams.boardId))
+      .where(and(eq(userExamGoals.userId, userId), extra))
+      .orderBy(desc(userExamGoals.updatedAt));
+    const rows = limit ? await query.limit(limit) : await query;
+    return rows.map((row) => ({
+      ...row.goal,
+      examTitle: row.examTitle,
+      catalogExamDate: row.catalogExamDate,
+      datesConfirmed: row.datesConfirmed,
+      organization: row.organization,
+      board: row.board,
+      uf: row.uf,
+      isSample: row.isSample,
+    }));
+  }
+
+  /** Concursos do usuário (encerrados por último), com dados do catálogo para exibição. */
+  async listGoals(userId: string): Promise<GoalWithExam[]> {
+    const rows = await this.goalQuery(userId, undefined);
+    const order = { ativo: 0, pausado: 1, encerrado: 2 } as const;
+    return rows.sort((a, b) => order[a.status] - order[b.status]);
+  }
+
+  async goalWithExam(userId: string, goalId: string): Promise<GoalWithExam | null> {
+    const [row] = await this.goalQuery(userId, eq(userExamGoals.id, goalId), 1);
+    return row ?? null;
+  }
+
+  /**
+   * Concurso em uso numa requisição. Com `goalId`, o objetivo informado (se for do usuário e não estiver
+   * encerrado); sem ele, o ativo atualizado mais recentemente.
+   */
+  async activeGoal(userId: string, goalId?: string): Promise<GoalWithExam | null> {
+    if (goalId) {
+      const goal = await this.goalWithExam(userId, goalId);
+      return goal && goal.status !== "encerrado" ? goal : null;
+    }
+    const [row] = await this.goalQuery(userId, eq(userExamGoals.status, "ativo"), 1);
+    return row ?? null;
+  }
+
+  async countActiveGoals(userId: string, exceptGoalId?: string): Promise<number> {
+    const [row] = await this.db
+      .select({ value: count() })
+      .from(userExamGoals)
+      .where(
+        and(
+          eq(userExamGoals.userId, userId),
+          eq(userExamGoals.status, "ativo"),
+          exceptGoalId ? ne(userExamGoals.id, exceptGoalId) : undefined,
+        ),
+      );
+    return row?.value ?? 0;
+  }
+
+  /** Objetivo aberto (ativo ou pausado) do usuário para o mesmo edital, se existir. */
+  async openGoalForNotice(userId: string, noticeId: string): Promise<GoalRow | null> {
+    const [row] = await this.db
+      .select()
+      .from(userExamGoals)
+      .where(
+        and(
+          eq(userExamGoals.userId, userId),
+          eq(userExamGoals.noticeId, noticeId),
+          ne(userExamGoals.status, "encerrado"),
+        ),
+      );
+    return row ?? null;
   }
 
   async goalById(userId: string, goalId: string): Promise<GoalRow | null> {
@@ -186,10 +271,11 @@ export class PlanRepository {
       );
   }
 
+  /** Marca o assunto como estudado no objetivo informado ou, sem ele, em todos os objetivos que o têm. */
   async markTopicStudied(
     userId: string,
     noticeTopicId: string,
-    goalId: string,
+    goalId: string | null,
     covered: boolean,
   ): Promise<void> {
     await this.db
@@ -203,7 +289,7 @@ export class PlanRepository {
       .where(
         and(
           eq(userTopicStates.userId, userId),
-          eq(userTopicStates.goalId, goalId),
+          goalId ? eq(userTopicStates.goalId, goalId) : undefined,
           eq(userTopicStates.noticeTopicId, noticeTopicId),
         ),
       );

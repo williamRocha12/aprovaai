@@ -123,7 +123,7 @@ export async function buildApp({ config, db, email, ai }: AppDeps) {
       const slug = await pastExamsService.boardSlugForExam(goal.examId);
       return slug ? pastExamsService.xray(slug, {}) : null;
     },
-    currentCycle: async (user) => (await planService.current(user)).cycle,
+    currentCycle: async (user, goalId) => (await planService.current(user, goalId)).cycle,
   });
   registerAiRoutes(app, aiService);
   registerAiPlanSummaryRoute(app, aiService);

@@ -125,9 +125,10 @@ export class MockExamsService {
       questionCount: number;
       timeLimitMin?: number | null | undefined;
       preferUnanswered: boolean;
+      goalId?: string | undefined;
     },
   ): Promise<{ id: string; questionCount: number }> {
-    const goal = await this.planRepo.activeGoal(user.id);
+    const goal = await this.planRepo.activeGoal(user.id, input.goalId);
     const states = goal ? (await this.planRepo.topicStates(user.id, goal.id)).filter((s) => s.isActive) : [];
     const subjectIds =
       input.subjectIds.length > 0 ? input.subjectIds : [...new Set(states.map((s) => s.subjectId))];

@@ -91,7 +91,10 @@ export class QuestionsService {
     const [goal] = await this.db
       .select({ reviewIntervals: userExamGoals.reviewIntervals })
       .from(userExamGoals)
-      .where(and(eq(userExamGoals.userId, userId), eq(userExamGoals.isActive, true)));
+      .where(and(eq(userExamGoals.userId, userId), eq(userExamGoals.status, "ativo")))
+      .orderBy(desc(userExamGoals.updatedAt))
+      .limit(1);
+    // Revisão é por usuário (vale para todos os concursos): usa os intervalos do concurso ativo mais recente.
     return goal?.reviewIntervals ?? [1, 7, 30];
   }
 

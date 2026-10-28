@@ -1,0 +1,1 @@
+ALTER TABLE "user_exam_goals" DROP COLUMN "is_active";

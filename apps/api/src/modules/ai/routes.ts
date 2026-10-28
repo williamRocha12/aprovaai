@@ -1,4 +1,4 @@
-import { apiErrorSchema } from "@aprovaai/shared";
+import { apiErrorSchema, goalQuerySchema } from "@aprovaai/shared";
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -110,6 +110,7 @@ export function registerAiPlanSummaryRoute(app: FastifyInstance, service: AiServ
       config: aiRateLimit,
       schema: {
         tags: ["ai"],
+        querystring: goalQuerySchema,
         response: {
           200: z.object({
             summary: z.string(),
@@ -128,6 +129,6 @@ export function registerAiPlanSummaryRoute(app: FastifyInstance, service: AiServ
         },
       },
     },
-    async (request) => service.planSummary(requireUser(request)),
+    async (request) => service.planSummary(requireUser(request), request.query.goalId),
   );
 }
