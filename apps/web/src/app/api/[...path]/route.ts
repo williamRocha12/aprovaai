@@ -4,6 +4,8 @@ import { getApi, handleFetchRequest } from "@aprovaai/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// A extração de edital por IA pode levar alguns minutos (limite do plano Hobby com Fluid compute: 300 s).
+export const maxDuration = 300;
 
 async function handler(request: Request): Promise<Response> {
   const api = await getApi();

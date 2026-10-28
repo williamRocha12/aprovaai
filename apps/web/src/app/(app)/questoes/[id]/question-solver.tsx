@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { AiQuestionTools } from "@/components/questions/ai-tools";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Alert, Badge, Card, LoadingState } from "@/components/ui/feedback";
 import { api, errorMessage } from "@/lib/api";
@@ -277,6 +278,8 @@ export function QuestionSolver({
           </div>
         )}
       </Card>
+
+      <AiQuestionTools question={q} revealed={q.revealed || Boolean(result)} />
 
       <Card className="space-y-3">
         <label htmlFor="note" className="font-semibold">

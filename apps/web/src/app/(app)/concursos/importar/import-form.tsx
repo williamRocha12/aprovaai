@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, Card } from "@/components/ui/feedback";
+import { usePublicConfig } from "@/components/use-public-config";
 import { api, errorMessage } from "@/lib/api";
+import { AiExtract } from "./ai-extract";
 
 const TEMPLATE = {
   exam: {
@@ -34,6 +36,7 @@ const TEMPLATE = {
 };
 
 export function ImportForm({ isEditor }: { isEditor: boolean }) {
+  const config = usePublicConfig();
   const [text, setText] = useState("");
   const [toCatalog, setToCatalog] = useState(isEditor);
   const [publish, setPublish] = useState(false);
@@ -81,6 +84,7 @@ export function ImportForm({ isEditor }: { isEditor: boolean }) {
 
   return (
     <Card className="space-y-4">
+      {config.data?.aiEnabled && <AiExtract onProposal={setText} />}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <label htmlFor="import-json" className="font-medium">
           Edital verticalizado (JSON)
