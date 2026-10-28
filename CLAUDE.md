@@ -110,7 +110,20 @@ Feito:
 - Web: onboarding em 4 passos (também edita o plano), "O que estudar agora" com cronômetro, plano semanal com arrastar,
   sessões, catálogo, detalhe do edital verticalizado, importação. 3 E2E.
 
-Próximos passos (Etapa D): questões, tentativas, classificação de erros, caderno de erros com revisão espaçada e dashboard;
-alimentar o planejador com acerto/erros/revisões vencidas (`PerformanceProvider` em `apps/api/src/modules/plan/service.ts`).
+**Etapa D — Questões e desempenho: concluída (2026-10-28).**
+
+- Schema `0002`: questions (catálogo + pessoais), question_options, question_attempts (append-only, idempotência por chave),
+  question_notes, question_lists/items (favoritas), question_reports, review_items.
+- 12 questões AUTORAIS de exemplo (`is_sample`) ligadas aos assuntos do TRT/FCC de exemplo.
+- API: banco com filtros (disciplina, assunto, banca, ano, não respondidas, erradas, favoritas, lista), detalhe sem gabarito até
+  responder, tentativa → revisão espaçada (core), classificação do erro, questão pessoal, cadastro rápido (sem copiar enunciado),
+  anotação, favoritos, listas, reporte (só catálogo), revisões por bucket, caderno de erros, dashboard.
+- Planejador agora usa desempenho real (`modules/questions/performance.ts`): acerto em 90 dias, perfil de erros e revisões
+  vencidas por assunto. Métricas puras em `packages/core/src/metrics.ts` (constância, evolução semanal, piores assuntos).
+- Web: Questões, resolução, registrar (rápido/completo), Revisões, Caderno de erros, Painel (Recharts, série única + tabela).
+- Testes: core 40, API 68, E2E 3 (inclui responder → classificar erro → revisão → painel).
+
+Próximos passos (Etapa E): simulados, painel admin (moderação de catálogo e reportes, métricas, feature flags), LGPD (exportar e
+excluir conta).
 
 Pendências conhecidas: ver [docs/backlog.md](docs/backlog.md).
