@@ -13,6 +13,36 @@ export const SCORING_TYPES = ["standard", "wrong_cancels_right"] as const;
 export const SUBJECT_KINDS = ["basica", "especifica"] as const;
 export const CONTENT_STATUSES = ["rascunho", "em_revisao", "validado"] as const;
 
+export const BRAZIL_UFS = [
+  "AC",
+  "AL",
+  "AP",
+  "AM",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MT",
+  "MS",
+  "MG",
+  "PA",
+  "PB",
+  "PR",
+  "PE",
+  "PI",
+  "RJ",
+  "RN",
+  "RS",
+  "RO",
+  "RR",
+  "SC",
+  "SP",
+  "SE",
+  "TO",
+] as const;
+
 export const SITUATION_LABELS: Record<(typeof EXAM_SITUATIONS)[number], string> = {
   previsto: "Previsto",
   autorizado: "Autorizado",
@@ -110,6 +140,10 @@ export const catalogListQuerySchema = z.object({
   uf: z.string().trim().length(2).toUpperCase().optional(),
   board: z.string().trim().max(50).optional(),
   situation: z.enum(EXAM_SITUATIONS).optional(),
+  /** "Em aberto" = qualquer situação exceto encerrado. */
+  open: z.stringbool().optional(),
+  /** Com `uf`, inclui também concursos sem UF (federais/nacionais), que valem para qualquer estado. */
+  includeNational: z.stringbool().optional(),
   sphere: z.enum(SPHERES).optional(),
   educationLevel: z.enum(EDUCATION_LEVELS).optional(),
   page: z.coerce.number().int().min(1).default(1),

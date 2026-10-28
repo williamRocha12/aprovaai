@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BRAZIL_UFS,
   SITUATION_LABELS,
   type Cycle,
   type ExamDetail,
@@ -61,16 +62,23 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
   );
   const [examDate, setExamDate] = useState(existing?.targetExamDate ?? "");
   const [search, setSearch] = useState("");
+  const [uf, setUf] = useState("");
+  const [onlyOpen, setOnlyOpen] = useState(true);
+  const [includeNational, setIncludeNational] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [issues, setIssues] = useState<string[]>([]);
 
+  const catalogParams = new URLSearchParams({ pageSize: "50" });
+  if (search) catalogParams.set("search", search);
+  if (onlyOpen) catalogParams.set("open", "true");
+  if (uf) {
+    catalogParams.set("uf", uf);
+    if (includeNational) catalogParams.set("includeNational", "true");
+  }
   const exams = useQuery({
-    queryKey: ["catalog", search],
-    queryFn: () =>
-      api.get<{ items: ExamSummary[] }>(
-        `/api/catalog/exams?pageSize=50${search ? `&search=${encodeURIComponent(search)}` : ""}`,
-      ),
+    queryKey: ["catalog", catalogParams.toString()],
+    queryFn: () => api.get<{ items: ExamSummary[] }>(`/api/catalog/exams?${catalogParams.toString()}`),
   });
   const detail = useQuery({
     queryKey: ["exam", examId],
@@ -180,14 +188,47 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Buscar concurso"
           />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <Select
+              aria-label="Estado"
+              value={uf}
+              onChange={(e) => setUf(e.target.value)}
+              className="w-auto min-w-44"
+            >
+              <option value="">Todos os estados</option>
+              {BRAZIL_UFS.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </Select>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} />
+              Somente em aberto
+            </label>
+            {uf && (
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={includeNational}
+                  onChange={(e) => setIncludeNational(e.target.checked)}
+                />
+                Incluir concursos nacionais (federais)
+              </label>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            A lista mostra os concursos cadastrados no catálogo, conferidos a partir de fontes oficiais. “Em
+            aberto” inclui previstos, autorizados e com edital publicado; só os encerrados ficam de fora.
+          </p>
           {exams.isPending ? (
             <LoadingState label="Carregando concursos..." />
           ) : exams.isError ? (
             <Alert variant="error">{errorMessage(exams.error)}</Alert>
           ) : exams.data.items.length === 0 ? (
             <EmptyState
-              title="Nenhum concurso encontrado."
-              description="Cadastre o seu a partir do edital."
+              title="Nenhum concurso encontrado com esses filtros."
+              description="Tente outro estado ou cadastre o seu a partir do edital."
             />
           ) : (
             <ul className="max-h-80 space-y-2 overflow-y-auto" role="radiogroup" aria-label="Concursos">

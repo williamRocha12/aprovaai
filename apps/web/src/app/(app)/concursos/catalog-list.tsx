@@ -1,6 +1,6 @@
 "use client";
 
-import { EXAM_SITUATIONS, SITUATION_LABELS, type ExamSummary } from "@aprovaai/shared";
+import { BRAZIL_UFS, EXAM_SITUATIONS, SITUATION_LABELS, type ExamSummary } from "@aprovaai/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useDeferredValue, useState } from "react";
@@ -9,8 +9,6 @@ import { buttonVariants } from "@/components/ui/button";
 import { Alert, EmptyState, LoadingState } from "@/components/ui/feedback";
 import { Input, Select } from "@/components/ui/form";
 import { api, errorMessage } from "@/lib/api";
-
-const UFS = "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split(" ");
 
 export function CatalogList() {
   const [search, setSearch] = useState("");
@@ -21,7 +19,8 @@ export function CatalogList() {
 
   const params = new URLSearchParams({ pageSize: "50" });
   if (deferredSearch) params.set("search", deferredSearch);
-  if (situation) params.set("situation", situation);
+  if (situation === "abertos") params.set("open", "true");
+  else if (situation) params.set("situation", situation);
   if (uf) params.set("uf", uf);
   if (board) params.set("board", board);
 
@@ -59,6 +58,7 @@ export function CatalogList() {
         />
         <Select aria-label="Situação" value={situation} onChange={(e) => setSituation(e.target.value)}>
           <option value="">Todas as situações</option>
+          <option value="abertos">Em aberto (não encerrados)</option>
           {EXAM_SITUATIONS.map((s) => (
             <option key={s} value={s}>
               {SITUATION_LABELS[s]}
@@ -67,7 +67,7 @@ export function CatalogList() {
         </Select>
         <Select aria-label="UF" value={uf} onChange={(e) => setUf(e.target.value)}>
           <option value="">Todas as UFs</option>
-          {UFS.map((u) => (
+          {BRAZIL_UFS.map((u) => (
             <option key={u} value={u}>
               {u}
             </option>

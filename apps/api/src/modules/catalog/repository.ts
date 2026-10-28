@@ -11,7 +11,7 @@ import {
   type Database,
 } from "@aprovaai/db";
 import type { ExamDetail, ExamSummary, NoticeSubjectDto } from "@aprovaai/shared";
-import { and, asc, count, desc, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, isNull, ne, or, type SQL } from "drizzle-orm";
 import type { CurrentUser } from "../../plugins/auth-context";
 
 export interface CatalogFilter {
@@ -19,6 +19,8 @@ export interface CatalogFilter {
   uf?: string | undefined;
   board?: string | undefined;
   situation?: ExamSummary["situation"] | undefined;
+  open?: boolean | undefined;
+  includeNational?: boolean | undefined;
   sphere?: ExamSummary["sphere"] | undefined;
   educationLevel?: "fundamental" | "medio" | "superior" | undefined;
   page: number;
@@ -73,9 +75,16 @@ export class CatalogRepository {
       const pattern = likePattern(filter.search);
       conditions.push(or(ilike(exams.title, pattern), ilike(organizations.name, pattern)) as SQL);
     }
-    if (filter.uf) conditions.push(eq(exams.uf, filter.uf));
+    if (filter.uf) {
+      conditions.push(
+        filter.includeNational
+          ? (or(eq(exams.uf, filter.uf), isNull(exams.uf)) as SQL)
+          : eq(exams.uf, filter.uf),
+      );
+    }
     if (filter.board) conditions.push(eq(boards.slug, filter.board));
     if (filter.situation) conditions.push(eq(exams.situation, filter.situation));
+    if (filter.open) conditions.push(ne(exams.situation, "encerrado"));
     if (filter.sphere) conditions.push(eq(exams.sphere, filter.sphere));
     if (filter.educationLevel) conditions.push(eq(exams.educationLevel, filter.educationLevel));
     const where = and(...conditions);

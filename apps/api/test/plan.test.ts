@@ -75,6 +75,16 @@ describe("catálogo", () => {
     expect((await client.get("/api/catalog/exams?situation=encerrado")).json().total).toBe(0);
   });
 
+  it("filtra em aberto por estado, incluindo concursos nacionais só quando pedido", async () => {
+    const { client } = await createVerifiedUser(ctx, "a@exemplo.com");
+    // O exemplo é federal (sem UF) e está "previsto" (em aberto).
+    expect((await client.get("/api/catalog/exams?open=true")).json().total).toBe(1);
+    expect((await client.get("/api/catalog/exams?open=true&uf=SC")).json().total).toBe(0);
+    expect((await client.get("/api/catalog/exams?open=true&uf=SC&includeNational=true")).json().total).toBe(
+      1,
+    );
+  });
+
   it("usuário importa concurso próprio (privado); editor publica no catálogo", async () => {
     const { client: user } = await createVerifiedUser(ctx, "a@exemplo.com");
     const { client: editor } = await createVerifiedUser(ctx, "editor@exemplo.com", "editor");
