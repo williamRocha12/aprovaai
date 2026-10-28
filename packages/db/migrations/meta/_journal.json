@@ -15,6 +15,13 @@
       "when": 1793161823631,
       "tag": "0001_catalog_and_study_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793163150613,
+      "tag": "0002_questions_and_reviews",
+      "breakpoints": true
     }
   ]
 }

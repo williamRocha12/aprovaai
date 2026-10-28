@@ -13,9 +13,13 @@ import { registerAuthRoutes } from "./modules/auth/routes";
 import { registerCatalogRoutes } from "./modules/catalog/routes";
 import { registerHealthRoutes } from "./modules/health/routes";
 import { registerMeRoutes } from "./modules/me/routes";
+import { DashboardService } from "./modules/dashboard/service";
 import { registerPlanRoutes } from "./modules/plan/routes";
 import { PlanService } from "./modules/plan/service";
 import { registerPublicRoutes } from "./modules/public/routes";
+import { createPerformanceProvider } from "./modules/questions/performance";
+import { registerQuestionRoutes } from "./modules/questions/routes";
+import { QuestionsService } from "./modules/questions/service";
 import { registerAuthContext } from "./plugins/auth-context";
 import { registerErrorHandler } from "./plugins/error-handler";
 import { registerSecurity } from "./plugins/security";
@@ -51,6 +55,8 @@ export async function buildApp({ config, db, email }: AppDeps) {
           { name: "public", description: "Configuração pública" },
           { name: "catalog", description: "Concursos, editais e importação" },
           { name: "plan", description: "Objetivo, ciclo de estudos, tarefas e sessões" },
+          { name: "questions", description: "Questões, tentativas, revisões e caderno de erros" },
+          { name: "dashboard", description: "Métricas do usuário" },
         ],
       },
       transform: jsonSchemaTransform,
@@ -71,8 +77,15 @@ export async function buildApp({ config, db, email }: AppDeps) {
   registerMeRoutes(app, db);
   registerAdminUserRoutes(app, db);
   registerCatalogRoutes(app, db);
-  const planService = new PlanService(db);
+  const planService = new PlanService(db, createPerformanceProvider(db));
   registerPlanRoutes(app, db, planService);
+  registerQuestionRoutes(
+    app,
+    db,
+    new QuestionsService(db),
+    planService,
+    new DashboardService(db, planService.repo),
+  );
 
   return { app, auth, email: emailProvider };
 }

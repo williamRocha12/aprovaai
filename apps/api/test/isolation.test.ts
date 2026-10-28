@@ -129,6 +129,53 @@ const privateResources: PrivateResource[] = [
       expect((await a.get("/api/sessions")).json()).toHaveLength(1);
     },
   },
+  {
+    name: "questão pessoal, tentativa e revisão",
+    setup: async (a) => {
+      const q = await a.post("/api/questions/quick", {
+        type: "certo_errado",
+        isCorrect: false,
+        myAnswer: "C",
+      });
+      const created = q.json();
+      return { questionId: created.questionId, attemptId: created.attempt.id };
+    },
+    attack: async (b, { questionId, attemptId }) => {
+      expect((await b.get(`/api/questions/${questionId}`)).statusCode).toBe(404);
+      expect((await b.patch(`/api/attempts/${attemptId}`, { errorType: "chute" })).statusCode).toBe(404);
+      expect((await b.post(`/api/questions/${questionId}/favorite`)).statusCode).toBe(404);
+      expect((await b.get("/api/questions?scope=minhas")).json().total).toBe(0);
+      expect((await b.get("/api/reviews")).json().items).toEqual([]);
+      expect((await b.get("/api/error-notebook")).json().entries).toEqual([]);
+    },
+    verify: async (a, { questionId }) => {
+      const detail = (await a.get(`/api/questions/${questionId}`)).json();
+      expect(detail.history[0].errorType).toBeNull();
+      expect((await a.get("/api/reviews")).json().items).toHaveLength(1);
+    },
+  },
+  {
+    name: "anotações e listas de questões",
+    setup: async (a) => {
+      await seedSampleData(ctx.db);
+      const questionId = (await a.get("/api/questions")).json().items[0].id;
+      await a.request("PUT", `/api/questions/${questionId}/note`, { body: "Anotação da A" });
+      const list = (await a.post("/api/lists", { name: "Lista da A" })).json();
+      await a.post(`/api/lists/${list.id}/items`, { questionId });
+      return { questionId, listId: list.id };
+    },
+    attack: async (b, { questionId, listId }) => {
+      expect((await b.get(`/api/questions/${questionId}`)).json().note).toBeNull();
+      expect((await b.post(`/api/lists/${listId}/items`, { questionId })).statusCode).toBe(404);
+      expect((await b.request("DELETE", `/api/lists/${listId}`)).statusCode).toBe(404);
+      expect((await b.get(`/api/questions?listId=${listId}`)).json().total).toBe(0);
+      expect((await b.get("/api/lists")).json()).toEqual([]);
+    },
+    verify: async (a, { questionId, listId }) => {
+      expect((await a.get(`/api/questions/${questionId}`)).json().note).toBe("Anotação da A");
+      expect((await a.get(`/api/questions?listId=${listId}`)).json().total).toBe(1);
+    },
+  },
 ];
 
 const PRIVATE_EXAM = {

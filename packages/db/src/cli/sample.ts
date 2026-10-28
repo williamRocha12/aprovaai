@@ -19,7 +19,9 @@ const { db, close } = createDb(url, { max: 1 });
 const run = async () => {
   if (remove) {
     const result = await removeSampleData(db, force);
-    process.stdout.write(`Exemplos removidos: ${result.exams} concurso(s), ${result.goals} plano(s).\n`);
+    process.stdout.write(
+      `Exemplos removidos: ${result.exams} concurso(s), ${result.questions} questão(ões), ${result.goals} plano(s).\n`,
+    );
   } else {
     const result = await seedSampleData(db);
     process.stdout.write(

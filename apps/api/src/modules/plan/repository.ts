@@ -22,6 +22,7 @@ export type TaskRow = typeof studyTasks.$inferSelect;
 export interface TopicStateRow {
   noticeTopicId: string;
   noticeSubjectId: string;
+  subjectId: string;
   subjectName: string;
   topicName: string;
   topicId: string;
@@ -75,6 +76,7 @@ export class PlanRepository {
       .select({
         noticeTopicId: noticeTopics.id,
         noticeSubjectId: noticeSubjects.id,
+        subjectId: subjects.id,
         subjectName: subjects.name,
         topicName: topics.name,
         topicId: topics.id,
