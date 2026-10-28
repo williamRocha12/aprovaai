@@ -11,6 +11,7 @@ export interface CurrentUser {
   email: string;
   name: string;
   role: UserRole;
+  timezone: string;
 }
 
 declare module "fastify" {
@@ -33,7 +34,13 @@ export function registerAuthContext(app: FastifyInstance, auth: Auth, db: Databa
     if (!result) return;
 
     const [user] = await db
-      .select({ id: users.id, email: users.email, name: users.name, role: users.role })
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        role: users.role,
+        timezone: users.timezone,
+      })
       .from(users)
       .where(and(eq(users.id, result.user.id), eq(users.status, "active"), isNull(users.deletedAt)));
     request.currentUser = user ?? null;

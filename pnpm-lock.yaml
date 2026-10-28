@@ -32,6 +32,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@aprovaai/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@aprovaai/db':
         specifier: workspace:*
         version: link:../../packages/db

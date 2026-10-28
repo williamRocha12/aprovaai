@@ -14,6 +14,8 @@ export const AUDIT_ACTIONS = {
   ROLE_CHANGED: "admin.user_role_changed",
   STATUS_CHANGED: "admin.user_status_changed",
   FEATURE_FLAG_CHANGED: "admin.feature_flag_changed",
+  CATALOG_IMPORTED: "catalog.notice_imported",
+  CATALOG_EDITED: "catalog.exam_edited",
 } as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 

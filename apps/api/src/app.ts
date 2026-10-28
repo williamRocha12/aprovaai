@@ -10,8 +10,11 @@ import type { EmailProvider } from "./lib/email/types";
 import { buildLoggerOptions } from "./lib/logger";
 import { registerAdminUserRoutes } from "./modules/admin/users-routes";
 import { registerAuthRoutes } from "./modules/auth/routes";
+import { registerCatalogRoutes } from "./modules/catalog/routes";
 import { registerHealthRoutes } from "./modules/health/routes";
 import { registerMeRoutes } from "./modules/me/routes";
+import { registerPlanRoutes } from "./modules/plan/routes";
+import { PlanService } from "./modules/plan/service";
 import { registerPublicRoutes } from "./modules/public/routes";
 import { registerAuthContext } from "./plugins/auth-context";
 import { registerErrorHandler } from "./plugins/error-handler";
@@ -46,6 +49,8 @@ export async function buildApp({ config, db, email }: AppDeps) {
           { name: "me", description: "Dados do usuário logado" },
           { name: "admin", description: "Administração (papel admin)" },
           { name: "public", description: "Configuração pública" },
+          { name: "catalog", description: "Concursos, editais e importação" },
+          { name: "plan", description: "Objetivo, ciclo de estudos, tarefas e sessões" },
         ],
       },
       transform: jsonSchemaTransform,
@@ -65,6 +70,9 @@ export async function buildApp({ config, db, email }: AppDeps) {
   registerPublicRoutes(app, db, config);
   registerMeRoutes(app, db);
   registerAdminUserRoutes(app, db);
+  registerCatalogRoutes(app, db);
+  const planService = new PlanService(db);
+  registerPlanRoutes(app, db, planService);
 
   return { app, auth, email: emailProvider };
 }

@@ -27,6 +27,9 @@ export async function createTestContext(overrides: Record<string, string> = {}):
     EMAIL_PROVIDER: "memory",
     RATE_LIMIT_ENABLED: "false",
     BETTER_AUTH_SECRET: "segredo-de-teste-com-mais-de-32-caracteres!!",
+    // Testes não herdam credenciais reais do .env local; quem precisa passa via overrides.
+    GOOGLE_CLIENT_ID: "",
+    GOOGLE_CLIENT_SECRET: "",
     ...overrides,
   });
   const { db, close } = createDb(config.DATABASE_URL, { max: 5 });
@@ -44,13 +47,13 @@ export async function createTestContext(overrides: Record<string, string> = {}):
   };
 }
 
-/** Limpa todas as tabelas entre testes e recria os dados de referência. */
+/** Limpa todas as tabelas do schema public entre testes e recria os dados de referência. */
 export async function resetDatabase(db: Database): Promise<void> {
-  await db.execute(sql`
-    TRUNCATE users, sessions, accounts, verifications, rate_limits, login_attempts,
-             user_profiles, consents, audit_logs, feature_flags
-    RESTART IDENTITY CASCADE
-  `);
+  const rows = await db.execute<{ tablename: string }>(
+    sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`,
+  );
+  const tables = [...rows].map((r) => `"${r.tablename}"`).join(", ");
+  if (tables) await db.execute(sql.raw(`TRUNCATE ${tables} RESTART IDENTITY CASCADE`));
   await seedReferenceData(db);
 }
 
@@ -61,7 +64,7 @@ export class TestClient {
   constructor(private readonly app: FastifyInstance) {}
 
   async request(
-    method: "GET" | "POST" | "PATCH" | "DELETE",
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     url: string,
     body?: unknown,
     options: { origin?: string | null } = {},
