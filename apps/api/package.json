@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "user:set-role": "tsx src/cli/set-role.ts"
+    "user:set-role": "tsx src/cli/set-role.ts",
+    "feature:set": "tsx src/cli/set-feature.ts"
   },
   "dependencies": {
     "@aprovaai/db": "workspace:*",

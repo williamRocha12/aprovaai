@@ -13,6 +13,7 @@ export const AUDIT_ACTIONS = {
   PASSWORD_CHANGED: "auth.password_changed",
   ROLE_CHANGED: "admin.user_role_changed",
   STATUS_CHANGED: "admin.user_status_changed",
+  FEATURE_FLAG_CHANGED: "admin.feature_flag_changed",
 } as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 

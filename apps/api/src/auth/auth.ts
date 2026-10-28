@@ -147,6 +147,8 @@ export function createAuth({ config, db, email, logger }: AuthDeps) {
             google: {
               clientId: config.GOOGLE_CLIENT_ID ?? "",
               clientSecret: config.GOOGLE_CLIENT_SECRET ?? "",
+              // Sempre mostra o seletor de contas (evita entrar sem querer com outra conta Google).
+              prompt: "select_account",
             },
           },
         }
@@ -270,6 +272,16 @@ export function createAuth({ config, db, email, logger }: AuthDeps) {
               ipAddress: ip,
             });
           }
+        }
+
+        // Retorno do OAuth (ex.: /callback/google): login social bem-sucedido.
+        if (ctx.path.startsWith("/callback/") && ctx.context.newSession) {
+          await recordAudit(db, {
+            action: AUDIT_ACTIONS.SIGN_IN,
+            actorUserId: ctx.context.newSession.user.id,
+            metadata: { method: ctx.path.replace("/callback/", "") },
+            ipAddress: ip,
+          });
         }
 
         if (ctx.path === "/change-password" && !(ctx.context.returned instanceof APIError)) {

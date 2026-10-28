@@ -52,6 +52,7 @@ pnpm lint ; pnpm typecheck ; pnpm test ; pnpm build
 pnpm test:e2e                        # precisa de build + Docker no ar
 pnpm db:generate                     # gera migration após mudar packages/db/src/schema
 pnpm user:set-role voce@exemplo.com admin   # promove usuário (primeiro admin)
+pnpm feature:set google_login on            # liga/desliga feature flag (painel de flags: Etapa E)
 ```
 
 ## Convenções

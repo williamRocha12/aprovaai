@@ -59,6 +59,22 @@ flowchart LR
 Não precisam ser definidas: `CLIENT_IP_HEADER` (na Vercel o padrão é `x-real-ip`, definido pela borda) e
 `APP_URL` em preview (a URL do deploy é usada automaticamente, ver `apps/api/src/config.ts`).
 
+## Login com Google
+
+1. No [Google Cloud Console](https://console.cloud.google.com/): crie (ou escolha) um projeto.
+2. **APIs e serviços → Tela de consentimento OAuth** (Google Auth Platform): tipo **Externo**, nome `AprovaAI`,
+   e-mail de suporte, escopos padrão (`openid`, `email`, `profile`). Enquanto estiver em **Teste**, só os
+   usuários de teste cadastrados ali conseguem entrar; publique o app para liberar a todos.
+3. **Credenciais → Criar credenciais → ID do cliente OAuth → Aplicativo da Web**:
+   - Origens JavaScript autorizadas: `https://aprovaai-nine.vercel.app` e `http://localhost:3000`
+   - URIs de redirecionamento autorizados: `https://aprovaai-nine.vercel.app/api/auth/callback/google` e
+     `http://localhost:3000/api/auth/callback/google`
+4. Na Vercel, defina `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` (Production) e faça redeploy.
+   Em dev, coloque os mesmos valores no `.env`.
+5. Ligue a flag no banco: `pnpm feature:set google_login on` (com `DATABASE_URL` do ambiente desejado).
+
+Previews têm URL variável e o Google não aceita curinga no redirect: o login Google funciona em produção e em dev.
+
 ## 4. Depois do primeiro deploy
 
 1. Cadastre-se no site e confirme o e-mail.

@@ -17,6 +17,10 @@ O que está implementado, onde fica no código e o que ainda falta. Atualize ao 
 | Logout global         | `POST /api/auth/revoke-sessions`                                                                                               |
 | Conta desativada      | Não cria sessão nova. Sessões existentes são apagadas e o papel/status é relido a cada requisição                              |
 
+- **Login com Google:** só com credenciais + flag `google_login`. O OAuth usa `state` (CSRF) e o seletor de contas.
+  Se o e-mail do Google já tiver conta, o Better Auth vincula as duas (o Google garante o e-mail verificado).
+  O cadastro via Google registra o aceite dos termos (aviso exibido junto ao botão).
+
 ## Autorização
 
 - RBAC no backend: `requireAuth` / `requireRole` (`apps/api/src/plugins/auth-context.ts`).

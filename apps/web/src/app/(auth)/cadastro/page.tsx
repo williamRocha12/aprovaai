@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { GoogleSignIn } from "@/components/google-sign-in";
 import { Card } from "@/components/ui/feedback";
 import { SignUpForm } from "./sign-up-form";
 
@@ -12,7 +13,8 @@ export default function SignUpPage() {
       <p className="mt-1 text-sm text-muted-foreground">
         Leva um minuto. Você confirma o e-mail e já começa.
       </p>
-      <div className="mt-6">
+      <div className="mt-6 space-y-4">
+        <GoogleSignIn termsNotice />
         <SignUpForm />
       </div>
       <p className="mt-6 text-center text-sm">

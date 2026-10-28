@@ -24,7 +24,6 @@ Itens conhecidos fora da etapa atual. Ao fechar um item, mova para o CLAUDE.md (
 
 - [ ] Job de limpeza: sessões expiradas, `login_attempts`, `rate_limits`, contas não verificadas há 30 dias (cron, Etapa G)
 - [ ] OpenAPI das rotas do Better Auth (plugin `open-api`) no `/api/docs`
-- [ ] Login Google: tela de botão quando a flag `google_login` estiver ligada (API já pronta)
 - [ ] Reenvio de verificação: o rate limit é por IP. Avaliar limite também por e-mail
 - [ ] eslint-plugin-react ainda declara peer `eslint <=9`. Funciona com ESLint 10, mas acompanhar
 
