@@ -180,7 +180,7 @@ describe("onboarding e ciclo", () => {
 
   it("reagenda arrastando para outro dia, mas não para um dia cheio", async () => {
     const { client } = await createVerifiedUser(ctx, "a@exemplo.com");
-    const { state, goalId } = await onboard(client);
+    const { state } = await onboard(client);
     const tasks = (state.cycle as Cycle).tasks;
     const task = tasks.find((t) => t.suggestedDate === today()) ?? tasks[0];
     if (!task) throw new Error("sem tarefa");

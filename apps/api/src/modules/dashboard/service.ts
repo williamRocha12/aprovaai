@@ -9,14 +9,12 @@ import {
   type TopicAccuracy,
 } from "@aprovaai/core";
 import {
-  exams,
   questionAttempts,
   questions,
   reviewItems,
   studySessions,
   studyTasks,
   subjects,
-  userExamGoals,
   type Database,
 } from "@aprovaai/db";
 import { ERROR_TYPES, type Dashboard, type ErrorTypeValue } from "@aprovaai/shared";
