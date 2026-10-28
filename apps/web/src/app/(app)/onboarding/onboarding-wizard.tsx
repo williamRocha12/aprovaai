@@ -111,7 +111,11 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
   }
 
   function canAdvance(): string | null {
-    if (step === 0 && (!exam || !notice)) return "Escolha um concurso com edital.";
+    if (step === 0) {
+      if (!examId) return "Clique em um concurso da lista para selecioná-lo.";
+      if (!exam) return detail.isError ? "Não foi possível carregar o edital." : "Carregando o edital...";
+      if (!notice) return "Esse concurso ainda não tem edital com conteúdo programático.";
+    }
     if (step === 1 && totalWeek === 0) return "Informe pelo menos algumas horas na semana.";
     if (step === 2 && !subjectList.some((s) => s.active)) return "Ative ao menos uma disciplina.";
     return null;
@@ -240,17 +244,28 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
                     aria-checked={examId === e.id}
                     onClick={() => chooseExam(e.id)}
                     className={cn(
-                      "w-full rounded-md border p-3 text-left text-sm hover:bg-muted",
-                      examId === e.id ? "border-primary ring-2 ring-primary/30" : "border-border",
+                      "flex w-full cursor-pointer items-start gap-3 rounded-md border p-3 text-left text-sm hover:bg-muted",
+                      examId === e.id ? "border-primary bg-muted ring-2 ring-primary/30" : "border-border",
                     )}
                   >
-                    <span className="font-medium">{e.title}</span>{" "}
-                    {e.isSample && <Badge tone="warning">Exemplo</Badge>}{" "}
-                    {e.isPrivate && <Badge>Privado</Badge>}
-                    <span className="block text-muted-foreground">
-                      {e.organization}
-                      {e.board ? ` · ${e.board}` : ""} · {SITUATION_LABELS[e.situation]}
-                      {!e.situationConfirmed && " (não confirmado)"}
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-2",
+                        examId === e.id ? "border-primary" : "border-muted-foreground",
+                      )}
+                    >
+                      {examId === e.id && <span className="size-2 rounded-full bg-primary" />}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="font-medium">{e.title}</span>{" "}
+                      {e.isSample && <Badge tone="warning">Exemplo</Badge>}{" "}
+                      {e.isPrivate && <Badge>Privado</Badge>}
+                      <span className="block text-muted-foreground">
+                        {e.organization}
+                        {e.board ? ` · ${e.board}` : ""} · {SITUATION_LABELS[e.situation]}
+                        {!e.situationConfirmed && " (não confirmado)"}
+                      </span>
                     </span>
                   </button>
                 </li>
@@ -258,6 +273,7 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
             </ul>
           )}
           {detail.isFetching && <LoadingState label="Carregando edital..." />}
+          {detail.isError && <Alert variant="error">{errorMessage(detail.error)}</Alert>}
           {exam && exam.positions.length > 1 && (
             <Field id="position" label="Cargo">
               <Select
