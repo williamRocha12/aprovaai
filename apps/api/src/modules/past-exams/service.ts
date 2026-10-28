@@ -441,16 +441,14 @@ export class PastExamsService {
           .returning({ id: questions.id });
         if (!question) return;
         if (item.options.length) {
-          await tx
-            .insert(questionOptions)
-            .values(
-              item.options.map((o, i) => ({
-                questionId: question.id,
-                label: o.label,
-                text: o.text,
-                sortOrder: i,
-              })),
-            );
+          await tx.insert(questionOptions).values(
+            item.options.map((o, i) => ({
+              questionId: question.id,
+              label: o.label,
+              text: o.text,
+              sortOrder: i,
+            })),
+          );
         }
         await tx
           .update(pastExamQuestions)
