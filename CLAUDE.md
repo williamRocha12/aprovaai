@@ -47,6 +47,7 @@ pnpm install
 pnpm db:migrate                      # aplica migrations no banco de dev
 pnpm --filter @aprovaai/db db:migrate:test   # (opcional) os testes já migram sozinhos
 pnpm db:seed                         # feature flags padrão
+pnpm db:sample                       # concurso de exemplo TRT/FCC (remove: pnpm db:sample:remove)
 pnpm dev                             # http://localhost:3000 (API em /api, Swagger em /api/docs)
 pnpm lint ; pnpm typecheck ; pnpm test ; pnpm build
 pnpm test:e2e                        # precisa de build + Docker no ar
@@ -92,7 +93,24 @@ Feito:
 - Web: landing, cadastro, login, verificação, recuperação, termos/privacidade (placeholder jurídico), conta (perfil, senha, sessões), admin/usuários.
 - Testes: 42 Vitest na API (auth, RBAC, isolamento, lockout, config, adaptador Fetch) + 10 no shared + 2 E2E Playwright. CI no GitHub Actions.
 
-Próximos passos (Etapa C): `packages/core` com o motor do ciclo e testes; schema do catálogo
-(subjects/topics/exams/notices); seed TRT/FCC de exemplo; onboarding; "O que estudar agora"; calendário; sessões de estudo.
+**Etapa C — Núcleo: concluída (2026-10-28).**
+
+- `packages/core`: prioridade (5 fatores, pesos configuráveis), fases por proximidade da prova, motor do ciclo determinístico
+  (disponibilidade nunca excedida, bloco mínimo por disciplina, reserva de revisões vencidas, pendências reaproveitadas com
+  conflito quando não cabem, tipo do bloco pelo tipo de erro, justificativa legível), repetição espaçada 1/7/30 e pontuação
+  de simulados (padrão e Cebraspe). 34 testes.
+- Schema `0001`: catálogo (boards, organizations, exams, exam_positions, exam_notices, subjects, topics, notice_subjects,
+  notice_topics) e plano (user_exam_goals, user_topic_states, study_cycles, study_tasks, study_sessions).
+  Regra de pontuação ficou em colunas de `exam_notices` (sem tabela `scoring_rules`: uma regra por edital basta).
+- Importação de edital JSON (editor → catálogo com rascunho/validado; usuário → concurso privado), taxonomia reaproveitada por slug.
+  Exemplo TRT/FCC (`pnpm db:sample`, remove com `pnpm db:sample:remove`), já semeado em produção.
+- API: catálogo (lista/filtros/detalhe/edição pelo editor com auditoria), objetivo (`PUT /api/goal`), ciclo atual com rolagem
+  automática ao vencer, recálculo sem apagar histórico (pendentes → `cancelada` + `superseded_by_cycle_id`), concluir/pular/
+  reagendar com checagem de capacidade do dia, sessões. 57 testes (inclui isolamento de tarefas, sessões e concurso privado).
+- Web: onboarding em 4 passos (também edita o plano), "O que estudar agora" com cronômetro, plano semanal com arrastar,
+  sessões, catálogo, detalhe do edital verticalizado, importação. 3 E2E.
+
+Próximos passos (Etapa D): questões, tentativas, classificação de erros, caderno de erros com revisão espaçada e dashboard;
+alimentar o planejador com acerto/erros/revisões vencidas (`PerformanceProvider` em `apps/api/src/modules/plan/service.ts`).
 
 Pendências conhecidas: ver [docs/backlog.md](docs/backlog.md).
