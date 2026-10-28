@@ -16,6 +16,10 @@ export const AUDIT_ACTIONS = {
   FEATURE_FLAG_CHANGED: "admin.feature_flag_changed",
   CATALOG_IMPORTED: "catalog.notice_imported",
   CATALOG_EDITED: "catalog.exam_edited",
+  QUESTION_EDITED: "catalog.question_edited",
+  REPORT_RESOLVED: "catalog.report_resolved",
+  DATA_EXPORTED: "privacy.data_exported",
+  ACCOUNT_DELETED: "privacy.account_deleted",
 } as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 

@@ -4,3 +4,5 @@ export * from "./errors";
 export * from "./plan";
 export * from "./users";
 export * from "./questions";
+export * from "./admin";
+export * from "./mock-exams";

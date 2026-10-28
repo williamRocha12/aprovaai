@@ -176,6 +176,41 @@ const privateResources: PrivateResource[] = [
       expect((await a.get(`/api/questions?listId=${listId}`)).json().total).toBe(1);
     },
   },
+  {
+    name: "simulados",
+    setup: async (a) => {
+      await onboardSample(a);
+      const exam = (await a.post("/api/mock-exams", { questionCount: 5 })).json();
+      const session = (await a.post(`/api/mock-exams/${exam.id}/start`)).json();
+      return { mockExamId: exam.id, attemptId: session.attemptId };
+    },
+    attack: async (b, { mockExamId, attemptId }) => {
+      expect((await b.post(`/api/mock-exams/${mockExamId}/start`)).statusCode).toBe(404);
+      expect((await b.get(`/api/mock-exam-attempts/${attemptId}/session`)).statusCode).toBe(404);
+      expect((await b.post(`/api/mock-exam-attempts/${attemptId}/finish`, { answers: [] })).statusCode).toBe(
+        404,
+      );
+      expect((await b.get("/api/mock-exams")).json()).toEqual([]);
+    },
+    verify: async (a, { attemptId }) => {
+      expect((await a.get(`/api/mock-exam-attempts/${attemptId}/session`)).statusCode).toBe(200);
+    },
+  },
+  {
+    name: "exportação de dados (LGPD)",
+    setup: async (a) => {
+      await a.patch("/api/me/profile", { displayName: "Segredo da A" });
+      return {};
+    },
+    attack: async (b) => {
+      const exported = await b.get("/api/me/export");
+      expect(exported.body).not.toContain("Segredo da A");
+      expect(exported.body).not.toContain("a@exemplo.com");
+    },
+    verify: async (a) => {
+      expect((await a.get("/api/me/export")).body).toContain("Segredo da A");
+    },
+  },
 ];
 
 const PRIVATE_EXAM = {

@@ -8,14 +8,19 @@ import type { AppConfig } from "./config";
 import { createEmailProvider } from "./lib/email/providers";
 import type { EmailProvider } from "./lib/email/types";
 import { buildLoggerOptions } from "./lib/logger";
+import { registerAdminPlatformRoutes } from "./modules/admin/platform-routes";
 import { registerAdminUserRoutes } from "./modules/admin/users-routes";
 import { registerAuthRoutes } from "./modules/auth/routes";
 import { registerCatalogRoutes } from "./modules/catalog/routes";
 import { registerHealthRoutes } from "./modules/health/routes";
 import { registerMeRoutes } from "./modules/me/routes";
+import { registerMockExamRoutes } from "./modules/mock-exams/routes";
+import { MockExamsService } from "./modules/mock-exams/service";
+import { registerModerationRoutes } from "./modules/moderation/routes";
 import { DashboardService } from "./modules/dashboard/service";
 import { registerPlanRoutes } from "./modules/plan/routes";
 import { PlanService } from "./modules/plan/service";
+import { registerPrivacyRoutes } from "./modules/privacy/routes";
 import { registerPublicRoutes } from "./modules/public/routes";
 import { createPerformanceProvider } from "./modules/questions/performance";
 import { registerQuestionRoutes } from "./modules/questions/routes";
@@ -57,6 +62,8 @@ export async function buildApp({ config, db, email }: AppDeps) {
           { name: "plan", description: "Objetivo, ciclo de estudos, tarefas e sessões" },
           { name: "questions", description: "Questões, tentativas, revisões e caderno de erros" },
           { name: "dashboard", description: "Métricas do usuário" },
+          { name: "mock-exams", description: "Simulados" },
+          { name: "moderation", description: "Moderação do catálogo (editor)" },
         ],
       },
       transform: jsonSchemaTransform,
@@ -79,13 +86,12 @@ export async function buildApp({ config, db, email }: AppDeps) {
   registerCatalogRoutes(app, db);
   const planService = new PlanService(db, createPerformanceProvider(db));
   registerPlanRoutes(app, db, planService);
-  registerQuestionRoutes(
-    app,
-    db,
-    new QuestionsService(db),
-    planService,
-    new DashboardService(db, planService.repo),
-  );
+  const questionsService = new QuestionsService(db);
+  registerQuestionRoutes(app, db, questionsService, planService, new DashboardService(db, planService.repo));
+  registerMockExamRoutes(app, db, new MockExamsService(db, planService.repo, questionsService));
+  registerAdminPlatformRoutes(app, db);
+  registerModerationRoutes(app, db);
+  registerPrivacyRoutes(app, db);
 
   return { app, auth, email: emailProvider };
 }

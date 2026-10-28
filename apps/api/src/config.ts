@@ -31,6 +31,12 @@ const configSchema = z
     SMTP_PORT: z.coerce.number().int().positive().default(1025),
     RESEND_API_KEY: z.string().optional(),
 
+    /** IA (Etapa F). Sem chave, os recursos de IA ficam desligados (nunca simulados). */
+    ANTHROPIC_API_KEY: z.string().optional(),
+    ANTHROPIC_MODEL: z.string().default("claude-sonnet-5-5"),
+    /** Limite de chamadas de IA por usuário por dia. */
+    AI_DAILY_QUOTA: z.coerce.number().int().min(0).default(30),
+
     /** Publica o Swagger UI em /docs. Em produção fica desligado por padrão. */
     API_DOCS_ENABLED: booleanFromEnv.optional(),
   })
@@ -64,6 +70,7 @@ export type AppConfig = z.infer<typeof configSchema> & {
   trustedOrigins: string[];
   isProduction: boolean;
   googleConfigured: boolean;
+  aiConfigured: boolean;
   apiDocsEnabled: boolean;
 };
 
@@ -111,6 +118,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     trustedOrigins: [...new Set([new URL(cfg.APP_URL).origin, ...extraOrigins])],
     isProduction: cfg.NODE_ENV === "production",
     googleConfigured: Boolean(cfg.GOOGLE_CLIENT_ID && cfg.GOOGLE_CLIENT_SECRET),
+    aiConfigured: Boolean(cfg.ANTHROPIC_API_KEY),
     apiDocsEnabled: cfg.API_DOCS_ENABLED ?? cfg.NODE_ENV !== "production",
   };
 }

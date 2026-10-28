@@ -274,7 +274,7 @@ export class QuestionsService {
   // ---------- Tentativas ----------
 
   /** Atualiza a fila de revisão espaçada a partir do resultado de uma tentativa. */
-  private async updateReview(user: CurrentUser, questionId: string, correct: boolean) {
+  async updateReview(user: CurrentUser, questionId: string, correct: boolean) {
     const today = this.today(user);
     const [current] = await this.db
       .select()

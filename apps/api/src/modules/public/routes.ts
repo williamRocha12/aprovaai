@@ -1,6 +1,5 @@
 import { featureFlags, type Database } from "@aprovaai/db";
 import { LEGAL_DOCS_VERSION } from "@aprovaai/shared";
-import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -8,6 +7,8 @@ import type { AppConfig } from "../../config";
 
 const publicConfigSchema = z.object({
   googleLoginEnabled: z.boolean(),
+  mockExamsEnabled: z.boolean(),
+  aiEnabled: z.boolean(),
   legalDocsVersion: z.string(),
 });
 
@@ -19,12 +20,16 @@ export function registerPublicRoutes(app: FastifyInstance, db: Database, config:
     "/api/public/config",
     { schema: { tags: ["public"], response: { 200: publicConfigSchema } } },
     async () => {
-      const [flag] = await db
-        .select({ enabled: featureFlags.enabled })
-        .from(featureFlags)
-        .where(eq(featureFlags.key, "google_login"));
+      const flags = new Map(
+        (await db.select({ key: featureFlags.key, enabled: featureFlags.enabled }).from(featureFlags)).map(
+          (f) => [f.key, f.enabled],
+        ),
+      );
       return {
-        googleLoginEnabled: Boolean(flag?.enabled) && config.googleConfigured,
+        googleLoginEnabled: Boolean(flags.get("google_login")) && config.googleConfigured,
+        mockExamsEnabled: Boolean(flags.get("mock_exams")),
+        // IA só fica ativa com a flag E a chave do provedor configurada; sem chave, nunca é simulada.
+        aiEnabled: Boolean(flags.get("ai")) && config.aiConfigured,
         legalDocsVersion: LEGAL_DOCS_VERSION,
       };
     },
