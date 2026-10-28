@@ -4,11 +4,15 @@ import type { Database } from "@aprovaai/db";
 import Fastify from "fastify";
 import { jsonSchemaTransform, serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import { createAuth } from "./auth/auth";
+import { AnthropicAiProvider } from "./lib/ai/anthropic";
+import type { AiProvider } from "./lib/ai/provider";
 import type { AppConfig } from "./config";
 import { createEmailProvider } from "./lib/email/providers";
 import type { EmailProvider } from "./lib/email/types";
 import { buildLoggerOptions } from "./lib/logger";
 import { registerAdminPlatformRoutes } from "./modules/admin/platform-routes";
+import { registerAiRoutes } from "./modules/ai/routes";
+import { AiService } from "./modules/ai/service";
 import { registerAdminUserRoutes } from "./modules/admin/users-routes";
 import { registerAuthRoutes } from "./modules/auth/routes";
 import { registerCatalogRoutes } from "./modules/catalog/routes";
@@ -34,9 +38,11 @@ export interface AppDeps {
   db: Database;
   /** Injetável nos testes (MemoryEmailProvider). */
   email?: EmailProvider;
+  /** Provedor de IA. undefined = criar pela config (chave presente → Anthropic); null = IA desligada. */
+  ai?: AiProvider | null;
 }
 
-export async function buildApp({ config, db, email }: AppDeps) {
+export async function buildApp({ config, db, email, ai }: AppDeps) {
   const app = Fastify({
     logger: buildLoggerOptions(config),
     // Não confiamos em X-Forwarded-For genérico. O IP real vem só do header configurado em
@@ -64,6 +70,7 @@ export async function buildApp({ config, db, email }: AppDeps) {
           { name: "dashboard", description: "Métricas do usuário" },
           { name: "mock-exams", description: "Simulados" },
           { name: "moderation", description: "Moderação do catálogo (editor)" },
+          { name: "ai", description: "Recursos de IA (propõem; a pessoa confirma)" },
         ],
       },
       transform: jsonSchemaTransform,
@@ -92,6 +99,13 @@ export async function buildApp({ config, db, email }: AppDeps) {
   registerAdminPlatformRoutes(app, db);
   registerModerationRoutes(app, db);
   registerPrivacyRoutes(app, db);
+  const aiProvider =
+    ai !== undefined
+      ? ai
+      : config.ANTHROPIC_API_KEY
+        ? new AnthropicAiProvider(config.ANTHROPIC_API_KEY, config.ANTHROPIC_MODEL)
+        : null;
+  registerAiRoutes(app, new AiService(db, config, aiProvider, planService.repo));
 
   return { app, auth, email: emailProvider };
 }

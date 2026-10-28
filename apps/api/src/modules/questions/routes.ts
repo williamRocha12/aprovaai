@@ -144,6 +144,26 @@ export function registerQuestionRoutes(
     async (request) => service.classify(requireUser(request), request.params.id, request.body.errorType),
   );
 
+  r.patch(
+    "/api/questions/:id/taxonomy",
+    {
+      ...opts,
+      schema: {
+        tags,
+        params: idParams,
+        body: z.object({ subjectId: z.uuid().nullable(), topicId: z.uuid().nullable() }),
+        response: { 200: questionDetailSchema, ...errors },
+      },
+    },
+    async (request) =>
+      service.setTaxonomy(
+        requireUser(request),
+        request.params.id,
+        request.body.subjectId,
+        request.body.topicId,
+      ),
+  );
+
   r.put(
     "/api/questions/:id/note",
     {

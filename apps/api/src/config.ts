@@ -33,7 +33,7 @@ const configSchema = z
 
     /** IA (Etapa F). Sem chave, os recursos de IA ficam desligados (nunca simulados). */
     ANTHROPIC_API_KEY: z.string().optional(),
-    ANTHROPIC_MODEL: z.string().default("claude-sonnet-5-5"),
+    ANTHROPIC_MODEL: z.string().default("claude-opus-5-5"),
     /** Limite de chamadas de IA por usuário por dia. */
     AI_DAILY_QUOTA: z.coerce.number().int().min(0).default(30),
 

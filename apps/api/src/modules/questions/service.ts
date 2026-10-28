@@ -518,6 +518,21 @@ export class QuestionsService {
     }
   }
 
+  /** Dono define disciplina/assunto da própria questão (ex.: aplicar a sugestão da IA). */
+  async setTaxonomy(user: CurrentUser, questionId: string, subjectId: string | null, topicId: string | null) {
+    const [own] = await this.db
+      .select({ id: questions.id })
+      .from(questions)
+      .where(and(eq(questions.id, questionId), eq(questions.ownerUserId, user.id)));
+    if (!own) throw notFound("Questão não encontrada entre as suas.");
+    await this.assertTaxonomy(user, subjectId, topicId);
+    await this.db
+      .update(questions)
+      .set({ subjectId, topicId })
+      .where(and(eq(questions.id, own.id), eq(questions.ownerUserId, user.id)));
+    return this.detail(user, own.id);
+  }
+
   // ---------- Anotações, favoritos, listas, reportes ----------
 
   async saveNote(user: CurrentUser, questionId: string, body: string): Promise<{ note: string | null }> {

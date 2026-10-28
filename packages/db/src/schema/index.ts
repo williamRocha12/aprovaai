@@ -4,3 +4,4 @@ export * from "./catalog";
 export * from "./plan";
 export * from "./questions";
 export * from "./mock-exams";
+export * from "./ai";

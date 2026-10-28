@@ -3,6 +3,7 @@ import type { UserRole } from "@aprovaai/shared";
 import { eq, sql } from "drizzle-orm";
 import type { FastifyInstance, LightMyRequestResponse } from "fastify";
 import { buildApp } from "../src/app";
+import type { AiProvider } from "../src/lib/ai/provider";
 import { loadConfig } from "../src/config";
 import { MemoryEmailProvider } from "../src/lib/email/providers";
 
@@ -16,7 +17,10 @@ export interface TestContext {
   close: () => Promise<void>;
 }
 
-export async function createTestContext(overrides: Record<string, string> = {}): Promise<TestContext> {
+export async function createTestContext(
+  overrides: Record<string, string> = {},
+  deps: { ai?: AiProvider | null } = {},
+): Promise<TestContext> {
   loadRootEnv();
   const config = loadConfig({
     ...process.env,
@@ -34,7 +38,8 @@ export async function createTestContext(overrides: Record<string, string> = {}):
   });
   const { db, close } = createDb(config.DATABASE_URL, { max: 5 });
   const email = new MemoryEmailProvider();
-  const { app } = await buildApp({ config, db, email });
+  // IA real nunca roda nos testes: sem dublê injetado, fica desligada.
+  const { app } = await buildApp({ config, db, email, ai: deps.ai ?? null });
   await app.ready();
   return {
     app,

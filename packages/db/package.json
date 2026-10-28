@@ -18,9 +18,10 @@
     "db:sample:remove": "tsx src/cli/sample.ts --remove"
   },
   "dependencies": {
+    "@aprovaai/shared": "workspace:*",
+    "@opentelemetry/api": "1.10.0",
     "drizzle-orm": "^0.45.4",
-    "postgres": "^3.4.9",
-    "@aprovaai/shared": "workspace:*"
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
