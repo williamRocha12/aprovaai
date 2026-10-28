@@ -1,5 +1,6 @@
 import type { Goal, MeResponse } from "@aprovaai/shared";
 import type { Metadata } from "next";
+import { OnboardingSteps } from "@/components/onboarding-steps";
 import { serverGet } from "@/lib/server-api";
 import { ExamPicker } from "./exam-picker";
 import { OnboardingWizard } from "./onboarding-wizard";
@@ -29,10 +30,9 @@ export default async function OnboardingPage({
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold">Escolha o concurso</h1>
+          <h1 className="text-2xl font-semibold">Concursos abertos</h1>
           <p className="text-sm text-muted-foreground">
-            Filtre pelo seu estado e clique no concurso que vai prestar. Depois você configura horas,
-            disciplinas e data da prova.
+            Filtre pelo seu estado e abra o concurso para ver o edital. De lá você monta o plano de estudos.
           </p>
         </div>
         <ExamPicker />
@@ -42,6 +42,7 @@ export default async function OnboardingPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      {!existing && <OnboardingSteps current={3} />}
       <div>
         <h1 className="text-2xl font-semibold">
           {existing ? "Editar plano de estudos" : "Configurar plano"}

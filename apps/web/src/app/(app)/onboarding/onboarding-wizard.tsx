@@ -164,8 +164,8 @@ export function OnboardingWizard({ examId, existing, defaultAvailability }: Prop
           {exam && <ExamFacts exam={exam} />}
         </div>
         {!existing && (
-          <Link href="/onboarding" className="text-sm text-primary underline">
-            Trocar concurso
+          <Link href={`/concursos/${examId}?origem=lista`} className="text-sm text-primary underline">
+            Ver edital
           </Link>
         )}
       </div>

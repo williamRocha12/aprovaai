@@ -7,9 +7,13 @@ test("onboarding gera o ciclo e o bloco concluído aparece no plano", async ({ p
   await signUpAndVerify(page, uniqueEmail("plano"));
   await page.getByRole("link", { name: "Continuar" }).click();
   // 1. Lista de concursos (filtro por estado); clicar no concurso abre a configuração do plano.
-  await expect(page.getByRole("heading", { name: "Escolha o concurso" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Concursos abertos" })).toBeVisible();
   await page.getByRole("combobox", { name: "Estado" }).selectOption("SC");
   await page.getByRole("link", { name: /TRT \(exemplo\)/ }).click();
+  // 2. Página do edital: resumo, cargos e conteúdo programático; daí o plano.
+  await expect(page.getByRole("heading", { name: "Resumo do edital" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Conteúdo programático" })).toBeVisible();
+  await page.getByRole("link", { name: "Montar plano de estudos" }).first().click();
   await expect(page.getByText("Concurso escolhido")).toBeVisible();
 
   // 2. Horas (padrão: 2h de seg a sex e 4h no sábado)

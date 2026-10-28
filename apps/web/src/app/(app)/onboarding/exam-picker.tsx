@@ -6,11 +6,12 @@ import Link from "next/link";
 import { useDeferredValue, useState } from "react";
 import { ExamFacts } from "@/components/exam-facts";
 import { useGoals } from "@/components/goal-context";
+import { OnboardingSteps } from "@/components/onboarding-steps";
 import { Alert, Badge, EmptyState, LoadingState } from "@/components/ui/feedback";
 import { Input, Select } from "@/components/ui/form";
 import { api, errorMessage } from "@/lib/api";
 
-/** Passo 1 do onboarding: lista de concursos por estado. Clicar num concurso abre a configuração do plano. */
+/** Passo 1: lista de concursos por estado. Clicar abre a página do edital (passo 2). */
 export function ExamPicker() {
   const { goals } = useGoals();
   const [search, setSearch] = useState("");
@@ -38,6 +39,7 @@ export function ExamPicker() {
 
   return (
     <div className="space-y-4">
+      <OnboardingSteps current={1} />
       <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
         <Select aria-label="Estado" value={uf} onChange={(e) => setUf(e.target.value)}>
           <option value="">Todos os estados</option>
@@ -89,51 +91,34 @@ export function ExamPicker() {
         <ul className="grid gap-3 md:grid-cols-2" aria-label="Concursos">
           {exams.data.items.map((e) => {
             const already = studying.has(e.id);
-            const available = e.hasNotice && !already;
-            const body = (
-              <>
-                <span className="flex flex-wrap items-center gap-1">
-                  <span className="font-medium text-primary">{e.title}</span>
-                  {e.isSample && <Badge tone="warning">Exemplo</Badge>}
-                  {e.isPrivate && <Badge>Privado</Badge>}
-                  {already && <Badge tone="success">Você já estuda</Badge>}
-                </span>
-                <span className="block text-sm text-muted-foreground">
-                  {e.organization}
-                  {e.board ? ` · ${e.board}` : ""}
-                  {e.uf ? ` · ${e.uf}` : " · Nacional"} · {SITUATION_LABELS[e.situation]}
-                  {!e.situationConfirmed && " (não confirmado)"}
-                </span>
-                <span className="mt-1 block">
-                  <ExamFacts exam={e} />
-                </span>
-                {!e.hasNotice && (
-                  <span className="mt-1 block text-xs text-warning">
-                    Conteúdo programático em preparação: ainda não dá para montar o plano.
-                  </span>
-                )}
-                {available && (
-                  <span className="mt-2 block text-sm font-medium text-primary">Montar plano →</span>
-                )}
-              </>
-            );
             return (
               <li key={e.id}>
-                {available ? (
-                  <Link
-                    href={`/onboarding?concurso=${e.id}`}
-                    className="block h-full rounded-lg border border-border bg-surface p-4 hover:border-primary hover:bg-muted"
-                  >
-                    {body}
-                  </Link>
-                ) : (
-                  <div className="h-full rounded-lg border border-border bg-surface p-4 opacity-80">
-                    {body}
-                    <Link href={`/concursos/${e.id}`} className="mt-2 block text-sm text-primary underline">
-                      Ver detalhes
-                    </Link>
-                  </div>
-                )}
+                <Link
+                  href={`/concursos/${e.id}?origem=lista`}
+                  className="block h-full rounded-lg border border-border bg-surface p-4 hover:border-primary hover:bg-muted"
+                >
+                  <span className="flex flex-wrap items-center gap-1">
+                    <span className="font-medium text-primary">{e.title}</span>
+                    {e.isSample && <Badge tone="warning">Exemplo</Badge>}
+                    {e.isPrivate && <Badge>Privado</Badge>}
+                    {already && <Badge tone="success">Você já estuda</Badge>}
+                  </span>
+                  <span className="block text-sm text-muted-foreground">
+                    {e.organization}
+                    {e.board ? ` · ${e.board}` : ""}
+                    {e.uf ? ` · ${e.uf}` : " · Nacional"} · {SITUATION_LABELS[e.situation]}
+                    {!e.situationConfirmed && " (não confirmado)"}
+                  </span>
+                  <span className="mt-1 block">
+                    <ExamFacts exam={e} />
+                  </span>
+                  {!e.hasNotice && (
+                    <span className="mt-1 block text-xs text-warning">
+                      Conteúdo programático em preparação.
+                    </span>
+                  )}
+                  <span className="mt-2 block text-sm font-medium text-primary">Ver edital →</span>
+                </Link>
               </li>
             );
           })}

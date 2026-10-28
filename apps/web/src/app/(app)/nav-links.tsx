@@ -8,7 +8,10 @@ import { cn } from "@/lib/utils";
 export function NavLinks({ links }: { links: { href: string; label: string; exact?: boolean }[] }) {
   const pathname = usePathname();
   return (
-    <nav aria-label="Área logada" className="flex items-center gap-1 overflow-x-auto text-sm">
+    <nav
+      aria-label="Área logada"
+      className="flex items-center gap-1 overflow-x-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
       {links.map((link) => {
         const active = pathname === link.href || (!link.exact && pathname.startsWith(`${link.href}/`));
         return (
