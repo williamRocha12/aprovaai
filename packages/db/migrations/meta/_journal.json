@@ -64,6 +64,20 @@
       "when": 1793217244565,
       "tag": "0008_drop_goal_is_active",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793218458973,
+      "tag": "0009_radar",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793218657241,
+      "tag": "0010_radar_ai_feature",
+      "breakpoints": true
     }
   ]
 }

@@ -164,6 +164,12 @@ export const examSummarySchema = z.object({
   isSample: z.boolean(),
   isPrivate: z.boolean(),
   contentStatus: z.enum(CONTENT_STATUSES),
+  registrationEnd: z.string().nullable(),
+  vacancies: z.number().int().nullable(),
+  salaryMax: z.number().nullable(),
+  positionCount: z.number().int(),
+  /** false = concurso confirmado pelo radar, ainda sem conteúdo programático cadastrado. */
+  hasNotice: z.boolean(),
 });
 export type ExamSummary = z.infer<typeof examSummarySchema>;
 

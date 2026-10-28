@@ -11,7 +11,7 @@ import {
   type Database,
 } from "@aprovaai/db";
 import type { ExamDetail, ExamSummary, NoticeSubjectDto } from "@aprovaai/shared";
-import { and, asc, count, desc, eq, ilike, inArray, isNull, ne, or, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 import type { CurrentUser } from "../../plugins/auth-context";
 
 export interface CatalogFilter {
@@ -54,6 +54,16 @@ const summaryColumns = {
   isSample: exams.isSample,
   ownerUserId: exams.ownerUserId,
   contentStatus: exams.contentStatus,
+  registrationEnd: exams.registrationEnd,
+  // Agregados por concurso (subconsultas): vagas, maior salário e se já há conteúdo programático.
+  vacancies: sql<
+    number | null
+  >`(select sum(${examPositions.vacancies})::int from ${examPositions} where ${examPositions.examId} = ${exams.id})`,
+  salaryMax: sql<
+    number | null
+  >`(select max(${examPositions.salary})::float from ${examPositions} where ${examPositions.examId} = ${exams.id})`,
+  positionCount: sql<number>`(select count(*)::int from ${examPositions} where ${examPositions.examId} = ${exams.id})`,
+  hasNotice: sql<boolean>`exists (select 1 from ${examNotices} where ${examNotices.examId} = ${exams.id})`,
 };
 
 type SummaryRow = Omit<ExamSummary, "isPrivate"> & { ownerUserId: string | null };
@@ -215,6 +225,15 @@ export class CatalogRepository {
       .from(exams)
       .where(and(eq(exams.id, examId), isNull(exams.ownerUserId)));
     return row ?? null;
+  }
+
+  async hasNotice(examId: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: examNotices.id })
+      .from(examNotices)
+      .where(eq(examNotices.examId, examId))
+      .limit(1);
+    return Boolean(row);
   }
 
   async updateExam(examId: string, changes: Partial<typeof exams.$inferInsert>): Promise<void> {

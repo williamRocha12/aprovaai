@@ -70,6 +70,27 @@ export const aiPlanSummarySchema = z.object({
 });
 export type AiPlanSummary = z.infer<typeof aiPlanSummarySchema>;
 
+/** Concurso detectado num trecho de diário oficial (radar). Campos ausentes no texto ficam null. */
+export const aiExamLeadSchema = z.object({
+  isExamOpening: z.boolean(),
+  organization: z.string().nullable(),
+  title: z.string().nullable(),
+  sphere: z.enum(["federal", "estadual", "municipal"]).nullable(),
+  uf: z.string().nullable(),
+  city: z.string().nullable(),
+  boardName: z.string().nullable(),
+  positions: z.array(
+    z.object({ title: z.string(), vacancies: z.number().nullable(), salary: z.number().nullable() }),
+  ),
+  registrationStart: z.string().nullable(),
+  registrationEnd: z.string().nullable(),
+  examDate: z.string().nullable(),
+  noticeUrl: z.string().nullable(),
+  evidenceQuote: z.string(),
+  confidence: z.enum(["alta", "media", "baixa"]),
+});
+export type AiExamLead = z.infer<typeof aiExamLeadSchema>;
+
 /** Dados agregados (sem nada pessoal) que a IA usa para explicar a estratégia do plano. */
 export interface PlanSummaryInput {
   examTitle: string;
@@ -122,4 +143,5 @@ export interface AiProvider {
     taxonomy: TaxonomyOption[],
   ): Promise<AiResult<AiBatchClassification>>;
   planSummary(input: PlanSummaryInput): Promise<AiResult<AiPlanSummary>>;
+  extractExamLead(excerpt: string): Promise<AiResult<AiExamLead>>;
 }

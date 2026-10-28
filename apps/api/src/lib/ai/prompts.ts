@@ -81,3 +81,22 @@ Resumo: até 120 palavras. highlights: 3 a 5 recomendações objetivas.`;
 export function planSummaryUserPrompt(input: unknown): string {
   return `Dados do plano (JSON):\n${JSON.stringify(input, null, 2)}`;
 }
+
+export const EXAM_LEAD_SYSTEM = `Você analisa trechos de diários oficiais brasileiros para identificar ABERTURA de concurso público.
+${UNTRUSTED_NOTE}
+Regras:
+- isExamOpening = true só se o trecho for edital de abertura (ou aviso de abertura de inscrições) de concurso público.
+  Resultado, homologação, convocação, nomeação, retificação sem nova abertura e processo seletivo simplificado = false.
+- Preencha só o que está escrito no trecho. Não invente órgão, banca, vagas, salários nem datas; ausente = null.
+- Datas no formato AAAA-MM-DD. Salário em reais como número (ex.: 4500.5). Vagas como número inteiro.
+- positions: um item por cargo citado (no máximo 20). Sem cargos no trecho = lista vazia.
+- evidenceQuote: cópia literal (até 400 caracteres) do trecho que comprova a abertura.
+- confidence: "alta" se órgão, cargos e período de inscrição estão claros; "baixa" se faltam dados essenciais.`;
+
+export function examLeadUserPrompt(excerpt: string): string {
+  return `Analise o trecho de diário oficial abaixo.
+
+<documento>
+${excerpt}
+</documento>`;
+}

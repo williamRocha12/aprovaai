@@ -9,7 +9,7 @@ import type { AiProvider } from "./lib/ai/provider";
 import type { AppConfig } from "./config";
 import { createEmailProvider } from "./lib/email/providers";
 import type { EmailProvider } from "./lib/email/types";
-import { runJobs, type JobRow } from "./lib/jobs";
+import { enqueueJob, runJobs, type JobRow } from "./lib/jobs";
 import { buildLoggerOptions } from "./lib/logger";
 import { registerAdminPlatformRoutes } from "./modules/admin/platform-routes";
 import { registerAiPlanSummaryRoute, registerAiRoutes } from "./modules/ai/routes";
@@ -33,6 +33,11 @@ import { registerPrivacyRoutes } from "./modules/privacy/routes";
 import { registerPublicRoutes } from "./modules/public/routes";
 import { createPerformanceProvider } from "./modules/questions/performance";
 import { registerQuestionRoutes } from "./modules/questions/routes";
+import { DouInlabsConnector } from "./modules/radar/connectors/dou-inlabs";
+import { QueridoDiarioConnector } from "./modules/radar/connectors/querido-diario";
+import type { SourceConnector } from "./modules/radar/connectors/types";
+import { registerRadarRoutes } from "./modules/radar/routes";
+import { RadarService } from "./modules/radar/service";
 import { QuestionsService } from "./modules/questions/service";
 import { registerAuthContext } from "./plugins/auth-context";
 import { registerErrorHandler } from "./plugins/error-handler";
@@ -45,9 +50,11 @@ export interface AppDeps {
   email?: EmailProvider;
   /** Provedor de IA. undefined = criar pela config (chave presente → Anthropic); null = IA desligada. */
   ai?: AiProvider | null;
+  /** Conectores do radar. undefined = os reais (rede); os testes injetam conectores com fixtures. */
+  radarConnectors?: SourceConnector[];
 }
 
-export async function buildApp({ config, db, email, ai }: AppDeps) {
+export async function buildApp({ config, db, email, ai, radarConnectors }: AppDeps) {
   const app = Fastify({
     logger: buildLoggerOptions(config),
     // Não confiamos em X-Forwarded-For genérico. O IP real vem só do header configurado em
@@ -128,8 +135,20 @@ export async function buildApp({ config, db, email, ai }: AppDeps) {
   registerAiRoutes(app, aiService);
   registerAiPlanSummaryRoute(app, aiService);
 
+  // Radar de editais (Etapa H): coleta diária em fontes oficiais/abertas → fila de confirmação do editor.
+  const radarService = new RadarService(
+    db,
+    radarConnectors ?? [
+      new QueridoDiarioConnector(config.QUERIDO_DIARIO_API_URL),
+      new DouInlabsConnector(config.INLABS_EMAIL, config.INLABS_PASSWORD),
+    ],
+    aiProvider,
+  );
+
   // Fila de jobs (ADR-010): handlers por tipo; executada pelo cron, pelo admin e após importações.
   const jobHandlers = {
+    radar_collect: (job: JobRow) => radarService.collect(String(job.payload.day)).then(() => undefined),
+    radar_process_document: (job: JobRow) => radarService.processDocument(String(job.payload.documentId)),
     process_past_exam: (job: JobRow) => pastExamsService.process(String(job.payload.pastExamId)),
     maintenance_cleanup: async () => {
       const removed = await maintenanceCleanup(db);
@@ -138,7 +157,17 @@ export async function buildApp({ config, db, email, ai }: AppDeps) {
   };
   const runQueue = (budgetMs: number) => runJobs(db, jobHandlers, app.log, { budgetMs });
   registerPastExamRoutes(app, db, pastExamsService, () => runQueue(50_000));
-  registerJobRoutes(app, db, config, runQueue);
+  // O cron coleta o dia anterior (diários do dia ainda podem estar sendo publicados).
+  const radarCronHook = async (day: string) => {
+    const yesterday = new Date(Date.parse(`${day}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+    await enqueueJob(db, "radar_collect", { day: yesterday }, { dedupeKey: `radar_collect:${yesterday}` });
+  };
+  registerJobRoutes(app, db, config, runQueue, [radarCronHook]);
+  registerRadarRoutes(app, db, radarService, async (day) => {
+    const collected = await radarService.collect(day);
+    const processed = await runQueue(50_000);
+    return { collected, processed };
+  });
 
   return { app, auth, email: emailProvider };
 }

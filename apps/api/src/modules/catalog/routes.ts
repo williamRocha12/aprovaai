@@ -12,18 +12,26 @@ import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { AUDIT_ACTIONS, recordAudit } from "../../lib/audit";
-import { notFound } from "../../lib/errors";
+import { AppError, notFound } from "../../lib/errors";
 import { requireAuth, requireRole, requireUser } from "../../plugins/auth-context";
 import { CatalogRepository } from "./repository";
 
 const idParams = z.object({ id: z.uuid() });
-const errors = { 400: apiErrorSchema, 401: apiErrorSchema, 403: apiErrorSchema, 404: apiErrorSchema };
+const errors = {
+  400: apiErrorSchema,
+  401: apiErrorSchema,
+  403: apiErrorSchema,
+  404: apiErrorSchema,
+  409: apiErrorSchema,
+};
 
 const importBodySchema = z.object({
   data: noticeImportSchema,
   /** Só editor/admin pode publicar no catálogo; usuário comum sempre cria um concurso privado. */
   target: z.enum(["catalog", "private"]).default("private"),
   publish: z.boolean().default(false),
+  /** Editor: adiciona o conteúdo programático a um concurso do catálogo que ainda não tem edital. */
+  examId: z.uuid().optional(),
 });
 
 export function registerCatalogRoutes(app: FastifyInstance, db: Database): void {
@@ -93,16 +101,25 @@ export function registerCatalogRoutes(app: FastifyInstance, db: Database): void 
     },
     async (request, reply) => {
       const user = requireUser(request);
-      const toCatalog =
-        request.body.target === "catalog" && (user.role === "editor" || user.role === "admin");
+      const isEditor = user.role === "editor" || user.role === "admin";
+      const toCatalog = request.body.target === "catalog" && isEditor;
+      if (request.body.examId) {
+        if (!toCatalog) throw new AppError(403, "FORBIDDEN", "Só editores completam concursos do catálogo.");
+        const existing = await repo.findCatalogExam(request.body.examId);
+        if (!existing) throw notFound("Concurso não encontrado no catálogo.");
+        if (await repo.hasNotice(existing.id)) {
+          throw new AppError(409, "CONFLICT", "Este concurso já tem conteúdo programático.");
+        }
+      }
       const result = await importNotice(db, request.body.data, {
         ownerUserId: toCatalog ? null : user.id,
         contentStatus: toCatalog ? (request.body.publish ? "validado" : "rascunho") : "validado",
         contentOrigin: toCatalog ? "oficial" : "usuario",
+        ...(request.body.examId ? { existingExamId: request.body.examId } : {}),
       });
       if (toCatalog) {
         await recordAudit(db, {
-          action: AUDIT_ACTIONS.CATALOG_IMPORTED,
+          action: request.body.examId ? AUDIT_ACTIONS.NOTICE_CONTENT_ADDED : AUDIT_ACTIONS.CATALOG_IMPORTED,
           actorUserId: user.id,
           targetType: "exam",
           targetId: result.examId,

@@ -19,6 +19,7 @@ export const aiFeature = pgEnum("ai_feature", [
   "question_classify",
   "question_explain",
   "plan_summary",
+  "radar_extract",
 ]);
 export const aiStatus = pgEnum("ai_status", ["ok", "error", "refused", "invalid_output"]);
 

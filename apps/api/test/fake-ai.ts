@@ -1,6 +1,7 @@
 // Dublê do provedor de IA para testes (determinístico, sem rede). Não é usado pelo produto.
 import type {
   AiBatchClassification,
+  AiExamLead,
   AiNotice,
   AiPlanSummary,
   AiProvider,
@@ -42,6 +43,23 @@ export const FAKE_NOTICE: AiNotice = {
     },
   ],
   warnings: ["O edital não informa pesos."],
+};
+
+export const FAKE_LEAD: AiExamLead = {
+  isExamOpening: true,
+  organization: "Prefeitura Municipal de Palhoça",
+  title: "Concurso público — Prefeitura de Palhoça 2026",
+  sphere: "municipal",
+  uf: "sc",
+  city: "Palhoça",
+  boardName: "Banca Teste",
+  positions: [{ title: "Agente Administrativo", vacancies: 10, salary: 3200.5 }],
+  registrationStart: "2026-11-03",
+  registrationEnd: "data inválida",
+  examDate: null,
+  noticeUrl: null,
+  evidenceQuote: "torna pública a abertura das inscrições do Concurso Público",
+  confidence: "alta",
 };
 
 export class FakeAi implements AiProvider {
@@ -93,5 +111,10 @@ export class FakeAi implements AiProvider {
     this.calls++;
     this.lastPlanSummaryInput = input;
     return { ok: true, data: { summary: "Resumo de teste.", highlights: ["Item 1"] }, usage: FAKE_USAGE };
+  }
+  nextLead: AiResult<AiExamLead> = { ok: true, data: FAKE_LEAD, usage: FAKE_USAGE };
+  async extractExamLead(): Promise<AiResult<AiExamLead>> {
+    this.calls++;
+    return this.nextLead;
   }
 }

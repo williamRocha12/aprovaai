@@ -23,6 +23,8 @@ export interface ImportOptions {
   contentStatus: "rascunho" | "em_revisao" | "validado";
   contentOrigin: "oficial" | "autoral" | "usuario" | "gerado_por_ia";
   isSample?: boolean;
+  /** Adiciona o edital (conteúdo programático) a um concurso que já existe, ex.: confirmado pelo radar. */
+  existingExamId?: string;
 }
 
 export interface ImportResult {
@@ -125,59 +127,65 @@ export async function importNotice(
   };
 
   return db.transaction(async (tx) => {
-    let boardId: string | null = null;
-    if (data.exam.board) {
-      const [board] = await tx
-        .insert(boards)
-        .values({ name: data.exam.board.name, slug: data.exam.board.slug })
-        .onConflictDoUpdate({ target: boards.slug, set: { name: sql`${boards.name}` } })
-        .returning({ id: boards.id });
-      boardId = board?.id ?? null;
-    }
+    const createExam = async () => {
+      let boardId: string | null = null;
+      if (data.exam.board) {
+        const [board] = await tx
+          .insert(boards)
+          .values({ name: data.exam.board.name, slug: data.exam.board.slug })
+          .onConflictDoUpdate({ target: boards.slug, set: { name: sql`${boards.name}` } })
+          .returning({ id: boards.id });
+        boardId = board?.id ?? null;
+      }
 
-    const org = data.exam.organization;
-    const [existingOrg] = await tx
-      .select({ id: organizations.id })
-      .from(organizations)
-      .where(
-        and(
-          eq(organizations.name, org.name),
-          org.uf ? eq(organizations.uf, org.uf) : isNull(organizations.uf),
-        ),
-      );
-    const organizationId =
-      existingOrg?.id ??
-      (
-        await tx
-          .insert(organizations)
-          .values({ name: org.name, acronym: org.acronym, sphere: org.sphere, uf: org.uf, city: org.city })
-          .returning({ id: organizations.id })
-      )[0]?.id;
-    if (!organizationId) throw new Error("Falha ao criar órgão.");
+      const org = data.exam.organization;
+      const [existingOrg] = await tx
+        .select({ id: organizations.id })
+        .from(organizations)
+        .where(
+          and(
+            eq(organizations.name, org.name),
+            org.uf ? eq(organizations.uf, org.uf) : isNull(organizations.uf),
+          ),
+        );
+      const organizationId =
+        existingOrg?.id ??
+        (
+          await tx
+            .insert(organizations)
+            .values({ name: org.name, acronym: org.acronym, sphere: org.sphere, uf: org.uf, city: org.city })
+            .returning({ id: organizations.id })
+        )[0]?.id;
+      if (!organizationId) throw new Error("Falha ao criar órgão.");
 
-    const [exam] = await tx
-      .insert(exams)
-      .values({
-        organizationId,
-        boardId,
-        title: data.exam.title,
-        sphere: data.exam.sphere,
-        uf: data.exam.uf,
-        city: data.exam.city,
-        educationLevel: data.exam.educationLevel,
-        situation: data.exam.situation,
-        examDate: data.exam.examDate,
-        datesConfirmed: data.exam.datesConfirmed,
-        officialUrl: data.exam.officialUrl,
-        sourceUrl: data.exam.officialUrl,
-        ownerUserId,
-        ...provenance,
-      })
-      .returning({ id: exams.id });
+      const [exam] = await tx
+        .insert(exams)
+        .values({
+          organizationId,
+          boardId,
+          title: data.exam.title,
+          sphere: data.exam.sphere,
+          uf: data.exam.uf,
+          city: data.exam.city,
+          educationLevel: data.exam.educationLevel,
+          situation: data.exam.situation,
+          examDate: data.exam.examDate,
+          datesConfirmed: data.exam.datesConfirmed,
+          officialUrl: data.exam.officialUrl,
+          sourceUrl: data.exam.officialUrl,
+          ownerUserId,
+          ...provenance,
+        })
+        .returning({ id: exams.id });
+      return exam;
+    };
+
+    const exam = options.existingExamId ? { id: options.existingExamId } : await createExam();
     if (!exam) throw new Error("Falha ao criar concurso.");
 
     let positionId: string | null = null;
-    if (data.position) {
+    // Concurso existente: os cargos já vieram da confirmação; o edital vale para todos eles.
+    if (data.position && !options.existingExamId) {
       const [position] = await tx
         .insert(examPositions)
         .values({

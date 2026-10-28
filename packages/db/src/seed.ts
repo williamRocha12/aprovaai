@@ -6,6 +6,7 @@ export const DEFAULT_FEATURE_FLAGS = [
   { key: "ai", description: "Recursos de IA (importação de edital, explicações)", enabled: false },
   { key: "mock_exams", description: "Simulados", enabled: true },
   { key: "past_exam_full_text", description: "Exibir texto integral de provas anteriores", enabled: false },
+  { key: "radar", description: "Radar de editais (coleta diária em diários oficiais)", enabled: true },
 ] as const;
 
 /** Dados de referência obrigatórios. Idempotente: não sobrescreve flags já alteradas pelo admin. */

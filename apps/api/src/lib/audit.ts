@@ -22,6 +22,9 @@ export const AUDIT_ACTIONS = {
   PAST_EXAM_IMPORTED: "catalog.past_exam_imported",
   PAST_EXAM_REVIEWED: "catalog.past_exam_reviewed",
   PAST_EXAM_PUBLISHED: "catalog.past_exam_published",
+  RADAR_LEAD_CONFIRMED: "catalog.radar_lead_confirmed",
+  RADAR_LEAD_DISCARDED: "catalog.radar_lead_discarded",
+  NOTICE_CONTENT_ADDED: "catalog.notice_content_added",
   ACCOUNT_DELETED: "privacy.account_deleted",
 } as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

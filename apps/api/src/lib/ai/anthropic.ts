@@ -13,9 +13,12 @@ import {
   noticeUserPrompt,
   PLAN_SUMMARY_SYSTEM,
   planSummaryUserPrompt,
+  EXAM_LEAD_SYSTEM,
+  examLeadUserPrompt,
 } from "./prompts";
 import {
   aiBatchClassificationSchema,
+  aiExamLeadSchema,
   aiClassificationSchema,
   aiExplanationSchema,
   aiNoticeSchema,
@@ -129,6 +132,15 @@ export class AnthropicAiProvider implements AiProvider {
       user: planSummaryUserPrompt(input),
       maxTokens: 8_000,
       effort: "medium",
+    });
+  }
+
+  extractExamLead(excerpt: string) {
+    return this.run(aiExamLeadSchema, {
+      system: EXAM_LEAD_SYSTEM,
+      user: examLeadUserPrompt(excerpt),
+      maxTokens: 4_000,
+      effort: "low",
     });
   }
 }
