@@ -38,7 +38,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     { href: "/painel", label: "Painel" },
     { href: "/concursos", label: "Concursos" },
     { href: "/provas", label: "Provas" },
-    ...(isEditor ? [{ href: "/moderacao", label: "Moderação" }] : []),
+    ...(isEditor ? [{ href: "/moderacao/radar", label: "Moderação" }] : []),
     ...(user.role === "admin" ? [{ href: "/admin/usuarios", label: "Admin" }] : []),
     { href: "/conta", label: "Conta" },
   ];

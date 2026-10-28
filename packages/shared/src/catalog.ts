@@ -198,7 +198,14 @@ export const examDetailSchema = examSummarySchema.extend({
   city: z.string().nullable(),
   officialUrl: z.string().nullable(),
   lastVerifiedAt: z.string().nullable(),
-  positions: z.array(z.object({ id: z.uuid(), title: z.string(), vacancies: z.number().int().nullable() })),
+  positions: z.array(
+    z.object({
+      id: z.uuid(),
+      title: z.string(),
+      vacancies: z.number().int().nullable(),
+      salary: z.number().nullable(),
+    }),
+  ),
   notice: z
     .object({
       id: z.uuid(),

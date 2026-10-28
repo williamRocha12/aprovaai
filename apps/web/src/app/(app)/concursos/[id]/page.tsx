@@ -5,12 +5,14 @@ import { notFound } from "next/navigation";
 import { ExamBadges } from "@/components/exam-badges";
 import { buttonVariants } from "@/components/ui/button";
 import { Alert, Card } from "@/components/ui/feedback";
+import { formatDateBr } from "@/lib/plan-ui";
 import { serverGet } from "@/lib/server-api";
 import { EditorExamForm } from "./editor-exam-form";
 
 export const metadata: Metadata = { title: "Concurso" };
 
 const KIND_LABELS = { basica: "Básica", especifica: "Específica" } as const;
+const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export default async function ExamDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -35,10 +37,17 @@ export default async function ExamDetailPage({ params }: { params: Promise<{ id:
           </p>
           <ExamBadges exam={e} />
         </div>
-        {e.notice && (
+        {e.notice ? (
           <Link href={`/onboarding?concurso=${e.id}`} className={buttonVariants()}>
             Estudar para este concurso
           </Link>
+        ) : (
+          isEditor &&
+          !e.isPrivate && (
+            <Link href={`/concursos/importar?exame=${e.id}`} className={buttonVariants()}>
+              Cadastrar conteúdo programático
+            </Link>
+          )
         )}
       </div>
 
@@ -75,11 +84,40 @@ export default async function ExamDetailPage({ params }: { params: Promise<{ id:
             </dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Cargos</dt>
-            <dd>{e.positions.length > 0 ? e.positions.map((p) => p.title).join("; ") : "Não informado"}</dd>
+            <dt className="text-muted-foreground">Inscrições</dt>
+            <dd>
+              {e.registrationEnd
+                ? `até ${formatDateBr(e.registrationEnd)}${e.datesConfirmed ? "" : " (não confirmado)"}`
+                : "Não informado"}
+            </dd>
           </div>
         </dl>
       </Card>
+
+      {e.positions.length > 0 && (
+        <Card className="overflow-x-auto">
+          <h2 className="text-lg font-semibold">Cargos</h2>
+          <table className="mt-3 w-full text-sm">
+            <caption className="sr-only">Cargos, vagas e remuneração</caption>
+            <thead className="text-left text-muted-foreground">
+              <tr>
+                <th className="py-1 pr-3 font-medium">Cargo</th>
+                <th className="py-1 pr-3 font-medium">Vagas</th>
+                <th className="py-1 font-medium">Remuneração</th>
+              </tr>
+            </thead>
+            <tbody>
+              {e.positions.map((p) => (
+                <tr key={p.id} className="border-t border-border">
+                  <td className="py-1.5 pr-3">{p.title}</td>
+                  <td className="py-1.5 pr-3 tabular-nums">{p.vacancies ?? "—"}</td>
+                  <td className="py-1.5 tabular-nums">{p.salary !== null ? money.format(p.salary) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
 
       {isEditor && !e.isPrivate && <EditorExamForm exam={e} />}
 
@@ -120,7 +158,10 @@ export default async function ExamDetailPage({ params }: { params: Promise<{ id:
             </div>
           </>
         ) : (
-          <p className="mt-2 text-sm text-muted-foreground">Edital ainda não cadastrado.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Conteúdo programático ainda não cadastrado. Assim que um editor cadastrar a partir do edital
+            oficial, você poderá montar o plano de estudos para este concurso.
+          </p>
         )}
       </Card>
     </div>

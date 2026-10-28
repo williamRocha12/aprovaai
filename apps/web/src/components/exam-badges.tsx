@@ -15,6 +15,7 @@ export function ExamBadges({ exam }: { exam: ExamSummary }) {
         {SITUATION_LABELS[exam.situation]}
         {!exam.situationConfirmed && " (não confirmado)"}
       </Badge>
+      {!exam.hasNotice && <Badge tone="warning">Conteúdo programático em preparação</Badge>}
       <Badge tone={exam.datesConfirmed && exam.examDate ? "success" : "neutral"}>
         Prova: {exam.datesConfirmed ? formatDateBr(exam.examDate) : "data não confirmada"}
       </Badge>

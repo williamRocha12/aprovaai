@@ -5,6 +5,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useDeferredValue, useState } from "react";
 import { ExamBadges } from "@/components/exam-badges";
+import { ExamFacts } from "@/components/exam-facts";
 import { buttonVariants } from "@/components/ui/button";
 import { Alert, EmptyState, LoadingState } from "@/components/ui/feedback";
 import { Input, Select } from "@/components/ui/form";
@@ -106,6 +107,9 @@ export function CatalogList() {
                   {exam.board ? ` · ${exam.board}` : ""}
                   {exam.uf ? ` · ${exam.uf}` : ""}
                 </p>
+                <div className="mb-2">
+                  <ExamFacts exam={exam} />
+                </div>
                 <ExamBadges exam={exam} />
               </Link>
             </li>

@@ -140,7 +140,12 @@ export class CatalogRepository {
     if (!row) return null;
 
     const positions = await this.db
-      .select({ id: examPositions.id, title: examPositions.title, vacancies: examPositions.vacancies })
+      .select({
+        id: examPositions.id,
+        title: examPositions.title,
+        vacancies: examPositions.vacancies,
+        salary: sql<number | null>`${examPositions.salary}::float`,
+      })
       .from(examPositions)
       .where(eq(examPositions.examId, examId))
       .orderBy(asc(examPositions.title));

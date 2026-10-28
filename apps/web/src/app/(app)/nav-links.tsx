@@ -4,12 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-export function NavLinks({ links }: { links: { href: string; label: string }[] }) {
+/** `exact`: só marca como ativo no caminho exato (para links-pai, como /moderacao). */
+export function NavLinks({ links }: { links: { href: string; label: string; exact?: boolean }[] }) {
   const pathname = usePathname();
   return (
     <nav aria-label="Área logada" className="flex items-center gap-1 overflow-x-auto text-sm">
       {links.map((link) => {
-        const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+        const active = pathname === link.href || (!link.exact && pathname.startsWith(`${link.href}/`));
         return (
           <Link
             key={link.href}

@@ -35,11 +35,18 @@ const TEMPLATE = {
   ],
 };
 
-export function ImportForm({ isEditor }: { isEditor: boolean }) {
+/** Com `targetExam`, o edital é adicionado a um concurso do catálogo que ainda não tem conteúdo programático. */
+export function ImportForm({
+  isEditor,
+  targetExam = null,
+}: {
+  isEditor: boolean;
+  targetExam?: { id: string; title: string } | null;
+}) {
   const config = usePublicConfig();
   const [text, setText] = useState("");
   const [toCatalog, setToCatalog] = useState(isEditor);
-  const [publish, setPublish] = useState(false);
+  const [publish, setPublish] = useState(targetExam !== null);
   const [issues, setIssues] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
@@ -71,8 +78,9 @@ export function ImportForm({ isEditor }: { isEditor: boolean }) {
       setResult(
         await api.post("/api/catalog/import", {
           data: parsed.data,
-          target: toCatalog ? "catalog" : "private",
-          publish: toCatalog && publish,
+          target: toCatalog || targetExam ? "catalog" : "private",
+          publish: (toCatalog || targetExam !== null) && publish,
+          ...(targetExam ? { examId: targetExam.id } : {}),
         }),
       );
     } catch (err) {
@@ -112,7 +120,13 @@ export function ImportForm({ isEditor }: { isEditor: boolean }) {
         (subassuntos em &quot;subtopics&quot;). Assuntos com o mesmo nome reaproveitam a taxonomia do
         catálogo.
       </p>
-      {isEditor && (
+      {targetExam && (
+        <Alert variant="info" title={`Completando: ${targetExam.title}`}>
+          Órgão, cargos e datas já foram confirmados. Aqui entram só o edital e o conteúdo programático; os
+          campos de &quot;exam&quot; e &quot;position&quot; do JSON são ignorados.
+        </Alert>
+      )}
+      {isEditor && !targetExam && (
         <div className="space-y-2 text-sm">
           <label className="flex items-center gap-2">
             <input

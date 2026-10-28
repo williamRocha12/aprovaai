@@ -17,6 +17,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, Badge, Card, EmptyState, LoadingState } from "@/components/ui/feedback";
 import { Field, Input, Select, fieldAria } from "@/components/ui/form";
+import { ExamFacts } from "@/components/exam-facts";
 import { useGoals } from "@/components/goal-context";
 import { api, errorMessage } from "@/lib/api";
 import { WEEKDAY_LABELS, formatDateBr, formatMinutes } from "@/lib/plan-ui";
@@ -133,7 +134,7 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
     if (step === 0) {
       if (!examId) return "Clique em um concurso da lista para selecioná-lo.";
       if (!exam) return detail.isError ? "Não foi possível carregar o edital." : "Carregando o edital...";
-      if (!notice) return "Esse concurso ainda não tem edital com conteúdo programático.";
+      if (!notice) return "Este concurso ainda não tem o conteúdo programático cadastrado.";
     }
     if (step === 1 && totalWeek === 0) return "Informe pelo menos algumas horas na semana.";
     if (step === 2 && !subjectList.some((s) => s.active)) return "Ative ao menos uma disciplina.";
@@ -288,6 +289,12 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
                         {e.board ? ` · ${e.board}` : ""} · {SITUATION_LABELS[e.situation]}
                         {!e.situationConfirmed && " (não confirmado)"}
                       </span>
+                      <ExamFacts exam={e} />
+                      {!e.hasNotice && (
+                        <span className="block text-xs text-warning">
+                          Conteúdo programático em preparação: ainda não dá para montar o plano.
+                        </span>
+                      )}
                     </span>
                   </button>
                 </li>
