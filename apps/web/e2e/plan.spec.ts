@@ -6,12 +6,11 @@ import { signUpAndVerify, uniqueEmail } from "./helpers";
 test("onboarding gera o ciclo e o bloco concluído aparece no plano", async ({ page }) => {
   await signUpAndVerify(page, uniqueEmail("plano"));
   await page.getByRole("link", { name: "Continuar" }).click();
-  await expect(page.getByRole("heading", { name: "Vamos montar seu plano" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Adicionar concurso" })).toBeVisible();
 
   // 1. Concurso
+  // Clicar no concurso já leva para a configuração do plano.
   await page.getByRole("radio", { name: /TRT \(exemplo\)/ }).click();
-  await expect(page.getByRole("button", { name: "Continuar" })).toBeEnabled();
-  await page.getByRole("button", { name: "Continuar" }).click();
 
   // 2. Horas (padrão: 2h de seg a sex e 4h no sábado)
   await expect(page.getByRole("heading", { name: "Quanto tempo você tem para estudar?" })).toBeVisible();
@@ -32,6 +31,13 @@ test("onboarding gera o ciclo e o bloco concluído aparece no plano", async ({ p
 
   await page.getByRole("button", { name: "Concluir bloco" }).click();
   await expect(page.getByRole("heading", { level: 2 }).first()).not.toHaveText(firstTopic ?? "");
+
+  // O concurso aparece em Meus concursos com o progresso da semana.
+  await page.getByRole("link", { name: "Meus concursos", exact: true }).first().click();
+  await expect(page.getByRole("heading", { name: /TRT \(exemplo\)/ })).toBeVisible();
+  await expect(page.getByText("Ativo", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Estudar agora" }).click();
+  await expect(page.getByRole("heading", { name: "O que estudar agora" })).toBeVisible();
 
   await page.getByRole("link", { name: "Ver semana" }).click();
   await expect(page.getByRole("heading", { name: "Plano da semana" })).toBeVisible();

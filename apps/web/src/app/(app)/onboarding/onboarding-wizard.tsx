@@ -10,13 +10,14 @@ import {
   type GoalInput,
   type WeeklyAvailability,
 } from "@aprovaai/shared";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, Badge, Card, EmptyState, LoadingState } from "@/components/ui/feedback";
 import { Field, Input, Select, fieldAria } from "@/components/ui/form";
+import { useGoals } from "@/components/goal-context";
 import { api, errorMessage } from "@/lib/api";
 import { WEEKDAY_LABELS, formatDateBr, formatMinutes } from "@/lib/plan-ui";
 import { cn } from "@/lib/utils";
@@ -50,7 +51,12 @@ interface Props {
 
 export function OnboardingWizard({ existing, preselectedExamId, defaultAvailability }: Props) {
   const router = useRouter();
-  const [step, setStep] = useState(0);
+  const queryClient = useQueryClient();
+  const { goals, selectGoal } = useGoals();
+  // Edição: o concurso é fixo (outro edital = outro concurso); começa nas horas.
+  const [step, setStep] = useState(existing ? 1 : 0);
+  // Se a criação gerou o concurso mas o ciclo teve pendências, os próximos envios editam esse concurso.
+  const [goalId, setGoalId] = useState<string | null>(existing?.id ?? null);
   const [examId, setExamId] = useState<string | null>(preselectedExamId ?? existing?.examId ?? null);
   const [positionId, setPositionId] = useState<string | null>(existing?.positionId ?? null);
   const [week, setWeek] = useState<WeeklyAvailability>(
@@ -98,13 +104,26 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
     }));
   const totalWeek = Object.values(week).reduce((a, b) => a + b, 0);
 
-  function chooseExam(id: string) {
+  /** Ao clicar no concurso, carrega o edital e já segue para a configuração do plano. */
+  async function chooseExam(id: string) {
     if (id !== examId) {
       setExamId(id);
       setSubjects(null);
       setPositionId(null);
     }
+    try {
+      const chosen = await queryClient.fetchQuery({
+        queryKey: ["exam", id],
+        queryFn: () => api.get<ExamDetail>(`/api/catalog/exams/${id}`),
+      });
+      if (chosen.notice && chosen.positions.length <= 1) setStep(1);
+    } catch {
+      // O erro aparece pela query de detalhe logo abaixo da lista.
+    }
   }
+
+  /** Concursos que o usuário já estuda (ativos ou pausados) não podem ser adicionados de novo. */
+  const studying = new Set(goals.filter((g) => g.status !== "encerrado").map((g) => g.examId));
 
   function updateSubject(id: string, patch: Partial<SubjectChoice>) {
     setSubjects(subjectList.map((s) => (s.noticeSubjectId === id ? { ...s, ...patch } : s)));
@@ -142,17 +161,18 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
       reviewIntervals: existing?.reviewIntervals,
     };
     try {
-      const result = await api.request<{ cycle: Cycle | null; issues: { message: string }[] }>(
-        "PUT",
-        "/api/goal",
-        body,
-      );
+      type Result = { goalId?: string; cycle: Cycle | null; issues: { message: string }[] };
+      const result = goalId
+        ? await api.request<Result>("PUT", `/api/goals/${goalId}`, body)
+        : await api.post<Result>("/api/goals", body);
+      const savedId = goalId ?? result.goalId ?? null;
+      if (savedId && savedId !== goalId) setGoalId(savedId);
       if (result.issues.length > 0) {
         setIssues(result.issues.map((i) => i.message));
         return;
       }
+      if (savedId) selectGoal(savedId);
       router.push("/agora");
-      router.refresh();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -242,9 +262,10 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
                     type="button"
                     role="radio"
                     aria-checked={examId === e.id}
-                    onClick={() => chooseExam(e.id)}
+                    disabled={studying.has(e.id)}
+                    onClick={() => void chooseExam(e.id)}
                     className={cn(
-                      "flex w-full cursor-pointer items-start gap-3 rounded-md border p-3 text-left text-sm hover:bg-muted",
+                      "flex w-full cursor-pointer items-start gap-3 rounded-md border p-3 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60",
                       examId === e.id ? "border-primary bg-muted ring-2 ring-primary/30" : "border-border",
                     )}
                   >
@@ -260,7 +281,8 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
                     <span className="min-w-0">
                       <span className="font-medium">{e.title}</span>{" "}
                       {e.isSample && <Badge tone="warning">Exemplo</Badge>}{" "}
-                      {e.isPrivate && <Badge>Privado</Badge>}
+                      {e.isPrivate && <Badge>Privado</Badge>}{" "}
+                      {studying.has(e.id) && <Badge tone="success">Você já estuda</Badge>}
                       <span className="block text-muted-foreground">
                         {e.organization}
                         {e.board ? ` · ${e.board}` : ""} · {SITUATION_LABELS[e.situation]}
@@ -443,7 +465,11 @@ export function OnboardingWizard({ existing, preselectedExamId, defaultAvailabil
       )}
 
       <div className="mt-6 flex items-center justify-between gap-3">
-        <Button variant="outline" onClick={() => setStep((s) => s - 1)} disabled={step === 0}>
+        <Button
+          variant="outline"
+          onClick={() => setStep((s) => s - 1)}
+          disabled={step === (existing ? 1 : 0)}
+        >
           Voltar
         </Button>
         {step < STEPS.length - 1 ? (

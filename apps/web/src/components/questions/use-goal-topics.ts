@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { goalQuery, useSelectedGoalId } from "@/components/goal-context";
 import { api, ApiRequestError } from "@/lib/api";
 
 export interface GoalTopic {
@@ -11,13 +12,14 @@ export interface GoalTopic {
   noticeTopicId: string;
 }
 
-/** Disciplinas e assuntos do plano do usuário (para filtros e cadastro). Lista vazia sem plano. */
+/** Disciplinas e assuntos do concurso em foco (para filtros e cadastro). Lista vazia sem plano. */
 export function useGoalTopics() {
+  const goalId = useSelectedGoalId();
   return useQuery({
-    queryKey: ["goal-topics"],
+    queryKey: ["goal-topics", goalId],
     queryFn: async () => {
       try {
-        return await api.get<GoalTopic[]>("/api/goal/topics");
+        return await api.get<GoalTopic[]>(`/api/goal/topics${goalQuery(goalId)}`);
       } catch (err) {
         if (err instanceof ApiRequestError && err.status === 404) return [];
         throw err;

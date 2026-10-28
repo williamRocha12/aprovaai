@@ -1,7 +1,12 @@
+import type { GoalSummary } from "@aprovaai/shared";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { GoalProvider } from "@/components/goal-context";
+import { GOAL_COOKIE, pickSelectedGoal } from "@/lib/goal-cookie";
 import { getCurrentUser, serverGet } from "@/lib/server-api";
+import { GoalSwitcher } from "./goal-switcher";
 import { NavLinks } from "./nav-links";
 import { SignOutButton } from "./sign-out-button";
 
@@ -14,10 +19,17 @@ interface PublicConfig {
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/entrar");
-  const { data: config } = await serverGet<PublicConfig>("/api/public/config");
+  const [{ data: config }, { data: goals }, cookieStore] = await Promise.all([
+    serverGet<PublicConfig>("/api/public/config"),
+    serverGet<GoalSummary[]>("/api/goals"),
+    cookies(),
+  ]);
+  const goalList = goals ?? [];
+  const selectedGoalId = pickSelectedGoal(goalList, cookieStore.get(GOAL_COOKIE)?.value);
   const isEditor = user.role === "editor" || user.role === "admin";
 
   const links = [
+    { href: "/meus-concursos", label: "Meus concursos" },
     { href: "/agora", label: "Agora" },
     { href: "/plano", label: "Plano" },
     { href: "/questoes", label: "Questões" },
@@ -44,9 +56,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main id="conteudo" className="mx-auto max-w-6xl px-4 py-8">
-        {children}
-      </main>
+      <GoalProvider goals={goalList} selectedGoalId={selectedGoalId}>
+        <GoalSwitcher />
+        <main id="conteudo" className="mx-auto max-w-6xl px-4 py-8">
+          {children}
+        </main>
+      </GoalProvider>
     </>
   );
 }

@@ -5,9 +5,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { TimerDisplay, useTaskTimer } from "@/components/plan/task-timer";
-import { PLAN_KEY, usePlan, useRecalculate, useUpdateTask } from "@/components/plan/use-plan";
+import { usePlan, useRecalculate, useUpdateTask } from "@/components/plan/use-plan";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Alert, Card, LoadingState } from "@/components/ui/feedback";
+import { useSelectedGoalId } from "@/components/goal-context";
 import { api, errorMessage } from "@/lib/api";
 import { TASK_TYPE_STYLES, formatDayShort, formatMinutes, isOpen, localToday } from "@/lib/plan-ui";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,7 @@ function TypeBadge({ type }: { type: Task["type"] }) {
 }
 
 export function NowView() {
+  const goalId = useSelectedGoalId();
   const plan = usePlan();
   const updateTask = useUpdateTask();
   const recalculate = useRecalculate();
@@ -56,7 +58,7 @@ export function NowView() {
           source: "cronometro",
           completeTask: true,
         });
-        await queryClient.invalidateQueries({ queryKey: PLAN_KEY });
+        await queryClient.invalidateQueries({ queryKey: ["plan"] });
       } else {
         await updateTask.mutateAsync({ id: task.id, status: "concluida" });
       }
@@ -99,7 +101,7 @@ export function NowView() {
       {plan.data.issues.map((issue) => (
         <Alert key={issue.code} variant="warning" title="Não foi possível montar o ciclo">
           {issue.message}{" "}
-          <Link href="/onboarding" className="underline">
+          <Link href={`/onboarding?editar=${goalId}`} className="underline">
             Ajustar plano
           </Link>
         </Alert>

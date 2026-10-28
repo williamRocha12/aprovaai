@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { AccuracyLineChart, ChartTable, HorizontalBarChart } from "@/components/charts/charts";
 import { buttonVariants } from "@/components/ui/button";
 import { Alert, Badge, Card, EmptyState, LoadingState } from "@/components/ui/feedback";
+import { goalQuery, useSelectedGoalId } from "@/components/goal-context";
 import { api, errorMessage } from "@/lib/api";
 import { formatMinutes } from "@/lib/plan-ui";
 
@@ -51,9 +52,10 @@ function Meter({ value, max, label }: { value: number; max: number; label: strin
 const shortDate = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
 export function DashboardView() {
+  const goalId = useSelectedGoalId();
   const dashboard = useQuery({
-    queryKey: ["dashboard"],
-    queryFn: () => api.get<Dashboard>("/api/dashboard"),
+    queryKey: ["dashboard", goalId],
+    queryFn: () => api.get<Dashboard>(`/api/dashboard${goalQuery(goalId)}`),
   });
 
   if (dashboard.isPending) return <LoadingState label="Calculando suas métricas..." />;

@@ -3,6 +3,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Alert, Badge, Card } from "@/components/ui/feedback";
+import { goalQuery, useSelectedGoalId } from "@/components/goal-context";
 import { usePublicConfig } from "@/components/use-public-config";
 import { api, errorMessage } from "@/lib/api";
 
@@ -18,7 +19,10 @@ interface PlanSummary {
 /** Resumo estratégico sob demanda: só aparece com IA ligada; nada é gerado sem o clique (consome cota). */
 export function PlanSummaryCard() {
   const config = usePublicConfig();
-  const summary = useMutation({ mutationFn: () => api.post<PlanSummary>("/api/ai/plan-summary") });
+  const goalId = useSelectedGoalId();
+  const summary = useMutation({
+    mutationFn: () => api.post<PlanSummary>(`/api/ai/plan-summary${goalQuery(goalId)}`),
+  });
   if (!config.data?.aiEnabled) return null;
 
   const sample = summary.data?.sources.boardSample;

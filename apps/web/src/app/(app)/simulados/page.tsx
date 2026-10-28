@@ -9,6 +9,7 @@ import { subjectsOf, useGoalTopics } from "@/components/questions/use-goal-topic
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Alert, Badge, Card, EmptyState, LoadingState } from "@/components/ui/feedback";
 import { Field, Input, Select, fieldAria } from "@/components/ui/form";
+import { useSelectedGoalId } from "@/components/goal-context";
 import { api, errorMessage } from "@/lib/api";
 import { formatDateTime } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ export default function MockExamsPage() {
     mutationFn: (id: string) => api.post<MockExamSession>(`/api/mock-exams/${id}/start`),
     onSuccess: (session) => router.push(`/simulados/sessao/${session.attemptId}`),
   });
+  const goalId = useSelectedGoalId();
   const create = useMutation({
     mutationFn: () =>
       api.post<{ id: string }>("/api/mock-exams", {
@@ -36,6 +38,7 @@ export default function MockExamsPage() {
         questionCount: count,
         timeLimitMin: timeLimit ? Number(timeLimit) : null,
         preferUnanswered: true,
+        goalId: goalId ?? undefined,
       }),
     onSuccess: (exam) => start.mutate(exam.id),
   });

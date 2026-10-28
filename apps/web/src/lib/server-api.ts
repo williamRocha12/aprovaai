@@ -27,8 +27,8 @@ export async function getCurrentUser(): Promise<MeResponse | null> {
   return data;
 }
 
-/** true se o usuário já configurou um concurso-alvo (onboarding feito). */
+/** true se o usuário estuda ao menos um concurso ativo (onboarding feito). */
 export async function hasGoal(): Promise<boolean> {
-  const { status } = await serverGet("/api/goal");
-  return status === 200;
+  const { data } = await serverGet<{ status: string }[]>("/api/goals");
+  return (data ?? []).some((g) => g.status === "ativo");
 }

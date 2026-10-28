@@ -3,6 +3,7 @@
 import { TASK_TYPE_LABELS, type Task, type WeeklyAvailability } from "@aprovaai/shared";
 import Link from "next/link";
 import { useState, type DragEvent } from "react";
+import { useSelectedGoalId } from "@/components/goal-context";
 import { usePlan, useRecalculate, useUpdateTask } from "@/components/plan/use-plan";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Alert, LoadingState } from "@/components/ui/feedback";
@@ -90,6 +91,7 @@ function TaskCard({
 }
 
 export function WeekCalendar() {
+  const goalId = useSelectedGoalId();
   const plan = usePlan();
   const updateTask = useUpdateTask();
   const recalculate = useRecalculate();
@@ -103,7 +105,7 @@ export function WeekCalendar() {
     return (
       <Alert variant="warning" title="Sem ciclo ativo">
         {plan.data.issues.map((i) => i.message).join(" ")}{" "}
-        <Link href="/onboarding" className="underline">
+        <Link href={`/onboarding?editar=${goalId}`} className="underline">
           Ajustar plano
         </Link>
       </Alert>
@@ -146,7 +148,10 @@ export function WeekCalendar() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href="/onboarding" className={buttonVariants({ variant: "outline", size: "sm" })}>
+          <Link
+            href={`/onboarding?editar=${goalId}`}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
             Ajustar plano
           </Link>
           <Button

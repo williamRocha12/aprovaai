@@ -25,10 +25,10 @@ export default async function AccountPage() {
       <Card>
         <h2 className="text-lg font-semibold">Plano de estudos</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Concurso-alvo, horas por dia, disciplinas ativas, autoavaliação e data da prova.
+          Cada concurso que você estuda tem o próprio plano: horas, disciplinas e data da prova.
         </p>
-        <Link href="/onboarding" className={buttonVariants({ variant: "outline", className: "mt-4" })}>
-          Editar plano
+        <Link href="/meus-concursos" className={buttonVariants({ variant: "outline", className: "mt-4" })}>
+          Meus concursos
         </Link>
       </Card>
 
