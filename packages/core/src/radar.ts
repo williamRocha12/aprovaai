@@ -32,7 +32,7 @@ const OPENING =
   /(edital de abertura|abertura d[aoe]s? inscric|inscricoes (estarao )?abertas|torna publica a abertura|abre inscric|realizacao de concurso publico|edital n[ºo°.]? ?\d)/;
 /** Publicações sobre concursos que já aconteceram (não interessam para a lista de abertos). */
 const LATER_STAGE =
-  /(homologa|resultado (final|definitivo|preliminar)|convoca(cao|dos)|nomea(cao|r)|classificacao final|gabarito|posse|prorroga(cao)? (do )?prazo de validade|torna sem efeito)/;
+  /(homologa|resultado (final|definitivo|preliminar|provisorio)|convoca(cao|dos)|nomea(cao|r)|classificacao final|gabarito|posse|prorroga(cao)? d[aoe] (prazo de )?validade|prorroga(cao)? (do )?prazo de validade|torna sem efeito|avaliacao de saude|considerados aptos|relacao (provisoria|final) dos candidatos)/;
 const NOT_CONCURSO = /(processo seletivo simplificado|chamamento publico|licitacao|pregao)/;
 
 /** Decide, por palavras-chave, se o trecho merece ir para a extração (IA ou regras). */
@@ -97,6 +97,82 @@ export function evidenceOf(excerpt: string, max = 600): string {
   return `${start > 0 ? "…" : ""}${piece}${start + max < clean.length ? "…" : ""}`;
 }
 
+/** Nomes de estado → UF. Ordem: nomes mais longos primeiro ("Rio Grande do Norte" antes de "Rio Grande"). */
+const STATE_NAMES: [string, string][] = (
+  [
+    ["rio grande do norte", "RN"],
+    ["rio grande do sul", "RS"],
+    ["mato grosso do sul", "MS"],
+    ["espirito santo", "ES"],
+    ["santa catarina", "SC"],
+    ["rio de janeiro", "RJ"],
+    ["distrito federal", "DF"],
+    ["minas gerais", "MG"],
+    ["mato grosso", "MT"],
+    ["sao paulo", "SP"],
+    ["pernambuco", "PE"],
+    ["tocantins", "TO"],
+    ["maranhao", "MA"],
+    ["rondonia", "RO"],
+    ["paraiba", "PB"],
+    ["alagoas", "AL"],
+    ["amazonas", "AM"],
+    ["roraima", "RR"],
+    ["sergipe", "SE"],
+    ["parana", "PR"],
+    ["goias", "GO"],
+    ["bahia", "BA"],
+    ["ceara", "CE"],
+    ["piaui", "PI"],
+    ["amapa", "AP"],
+    ["acre", "AC"],
+    ["para", "PA"],
+  ] as [string, string][]
+).sort((a, b) => b[0].length - a[0].length);
+
+const TRT_UF: Record<number, string> = {
+  1: "RJ",
+  2: "SP",
+  3: "MG",
+  4: "RS",
+  5: "BA",
+  6: "PE",
+  7: "CE",
+  9: "PR",
+  12: "SC",
+  13: "PB",
+  15: "SP",
+  16: "MA",
+  17: "ES",
+  18: "GO",
+  19: "AL",
+  20: "SE",
+  21: "RN",
+  22: "PI",
+  23: "MT",
+  24: "MS",
+};
+
+/**
+ * UF citada no nome do órgão ("Universidade Federal de Santa Catarina" → SC). Só nomes completos de estado,
+ * com fronteira de palavra; "Santa Maria" ou "Paraná do Sul" não confundem. null se não houver estado claro.
+ */
+export function inferUf(organization: string | null): string | null {
+  if (!organization) return null;
+  // Tribunais Regionais do Trabalho de um estado só (8ª, 10ª, 11ª e 14ª abrangem dois estados).
+  const trt = /tribunal regional do trabalho d[ao] (\d{1,2})/.exec(normalize(organization));
+  if (trt) return TRT_UF[Number(trt[1])] ?? null;
+  const text = ` ${normalize(organization).replace(/[^a-z ]/g, " ")} `;
+  for (const [name, uf] of STATE_NAMES) {
+    if (text.includes(` ${name} `) || text.includes(` do ${name} `) || text.includes(` de ${name} `)) {
+      // "Pará" só conta como estado com preposição ("do Pará"), para não casar com "para" (verbo).
+      if (name === "para" && !/ do para /.test(text)) continue;
+      return uf;
+    }
+  }
+  return null;
+}
+
 /** Rascunho por regras: confiança baixa, o editor completa e confere na fonte. */
 export function ruleBasedLead(doc: RadarDocument): RuleBasedLead {
   const text = doc.excerpt.replace(/\s+/g, " ");
@@ -109,7 +185,7 @@ export function ruleBasedLead(doc: RadarDocument): RuleBasedLead {
     organization,
     title: `Concurso público — ${organization}`,
     sphere: doc.sphere,
-    uf: doc.uf,
+    uf: doc.uf ?? inferUf(doc.territoryName),
     city: doc.sphere === "municipal" ? doc.territoryName : null,
     registrationStart: period.start,
     registrationEnd: period.end,

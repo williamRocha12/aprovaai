@@ -17,6 +17,7 @@
     "db:seed": "pnpm --filter @aprovaai/db db:seed",
     "user:set-role": "pnpm --filter @aprovaai/api user:set-role",
     "feature:set": "pnpm --filter @aprovaai/api feature:set",
+    "radar:collect": "pnpm --filter @aprovaai/api radar:collect",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:sample": "pnpm --filter @aprovaai/db db:sample",

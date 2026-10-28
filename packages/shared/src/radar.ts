@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { EXAM_SITUATIONS, SPHERES } from "./catalog";
 
-export const RADAR_SOURCES = ["querido_diario", "dou_inlabs"] as const;
+export const RADAR_SOURCES = ["querido_diario", "dou_inlabs", "dou_publico"] as const;
 export const RADAR_SOURCE_LABELS: Record<(typeof RADAR_SOURCES)[number], string> = {
   querido_diario: "Querido Diário (diários municipais)",
   dou_inlabs: "Diário Oficial da União (INLABS)",
+  dou_publico: "Diário Oficial da União (leitura pública)",
 };
 export const LEAD_STATUSES = ["pendente", "confirmado", "descartado"] as const;
 export const LEAD_CONFIDENCES = ["alta", "media", "baixa"] as const;

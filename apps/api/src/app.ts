@@ -34,6 +34,7 @@ import { registerPublicRoutes } from "./modules/public/routes";
 import { createPerformanceProvider } from "./modules/questions/performance";
 import { registerQuestionRoutes } from "./modules/questions/routes";
 import { DouInlabsConnector } from "./modules/radar/connectors/dou-inlabs";
+import { DouPublicoConnector } from "./modules/radar/connectors/dou-publico";
 import { QueridoDiarioConnector } from "./modules/radar/connectors/querido-diario";
 import type { SourceConnector } from "./modules/radar/connectors/types";
 import { registerRadarRoutes } from "./modules/radar/routes";
@@ -140,6 +141,7 @@ export async function buildApp({ config, db, email, ai, radarConnectors }: AppDe
     db,
     radarConnectors ?? [
       new QueridoDiarioConnector(config.QUERIDO_DIARIO_API_URL),
+      new DouPublicoConnector(),
       new DouInlabsConnector(config.INLABS_EMAIL, config.INLABS_PASSWORD),
     ],
     aiProvider,

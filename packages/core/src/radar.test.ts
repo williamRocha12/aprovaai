@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evidenceOf, isExamOpeningCandidate, parseDateBr, ruleBasedLead } from "./radar";
+import { evidenceOf, inferUf, isExamOpeningCandidate, parseDateBr, ruleBasedLead } from "./radar";
 
 const OPENING =
   "EDITAL DE ABERTURA Nº 01/2026. O Prefeito Municipal de Palhoça torna pública a abertura das inscrições " +
@@ -25,6 +25,19 @@ describe("isExamOpeningCandidate", () => {
       ).candidate,
     ).toBe(false);
     expect(isExamOpeningCandidate("Pregão eletrônico para aquisição de materiais").candidate).toBe(false);
+    expect(
+      isExamOpeningCandidate("EDITAL Nº 26. Prorrogação da validade de concurso público - Edital nº 1/2024.")
+        .candidate,
+    ).toBe(false);
+    expect(
+      isExamOpeningCandidate("Edital nº 37. Prorrogação de Validade de Concurso Público, edital nº 2/2024.")
+        .candidate,
+    ).toBe(false);
+    expect(
+      isExamOpeningCandidate(
+        "EDITAL Nº 19, DE 26 DE OUTUBRO DE 2026. CONCURSO PÚBLICO. Torna público o resultado provisório na avaliação de saúde.",
+      ).candidate,
+    ).toBe(false);
     expect(isExamOpeningCandidate("").candidate).toBe(false);
   });
 });
@@ -89,5 +102,24 @@ describe("evidenceOf", () => {
     expect(evidence.startsWith("…")).toBe(true);
     expect(evidence).toContain("concurso público");
     expect(evidence.length).toBeLessThanOrEqual(302);
+  });
+});
+
+describe("inferUf", () => {
+  it("acha a UF pelo nome completo do estado no órgão", () => {
+    expect(inferUf("Universidade Federal de Santa Catarina")).toBe("SC");
+    expect(inferUf("Instituto Federal do Rio Grande do Norte")).toBe("RN");
+    expect(inferUf("Universidade Federal do Rio Grande do Sul")).toBe("RS");
+    expect(inferUf("Universidade Federal do Pará")).toBe("PA");
+    expect(inferUf("Tribunal Regional do Trabalho da 12ª Região")).toBe("SC");
+    expect(inferUf("Tribunal Regional do Trabalho da 4ª Região")).toBe("RS");
+    expect(inferUf("Tribunal Regional do Trabalho da 8ª Região")).toBeNull();
+    expect(inferUf("Tribunal Regional Federal da 3ª Região")).toBeNull();
+  });
+
+  it("não confunde cidade ou palavra comum com estado", () => {
+    expect(inferUf("Universidade Federal de Santa Maria")).toBeNull();
+    expect(inferUf("Comissão para concurso")).toBeNull();
+    expect(inferUf(null)).toBeNull();
   });
 });

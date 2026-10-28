@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { strToU8, zipSync } from "fflate";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { DouInlabsConnector, parseInlabsArticle } from "../src/modules/radar/connectors/dou-inlabs";
+import { DouPublicoConnector, parseDouArticle } from "../src/modules/radar/connectors/dou-publico";
 import { QueridoDiarioConnector } from "../src/modules/radar/connectors/querido-diario";
 import type { RawDocument, SourceConnector } from "../src/modules/radar/connectors/types";
 import { FakeAi } from "./fake-ai";
@@ -383,5 +384,87 @@ describe("conectores (fixtures, sem rede)", () => {
       async () => new Response("", { status: 200 }),
     );
     await expect(connector.fetchDay("2026-10-27")).rejects.toThrow("Login no INLABS falhou");
+  });
+
+  // Mesmo formato da página real de leitura do DOU (dados sintéticos).
+  const dayPage = (items: object[]) =>
+    `<html><body><script id="params" type="application/json">${JSON.stringify({ jsonArray: items })}</script></body></html>`;
+  const item = (urlTitle: string, artType: string, title: string, content: string, hierarchyStr: string) => ({
+    pubName: "DO3",
+    urlTitle,
+    title,
+    content,
+    artType,
+    pubDate: "27/10/2026",
+    hierarchyStr,
+  });
+  const articlePage = (text: string) =>
+    `<html><div class="texto-dou"><p class="identifica">EDITAL Nº 5</p><p>${text}</p></div></div><div class="informacao">x</div></html>`;
+
+  it("DOU público: lê a lista do dia, abre só candidatas e descarta resultados com nomes", async () => {
+    const urls: string[] = [];
+    const list = [
+      item(
+        "edital-ufsc-1",
+        "Edital de Concurso Público",
+        "EDITAL Nº 5, DE 26 DE OUTUBRO DE 2026",
+        "EDITAL Nº 5. CONCURSO PÚBLICO para professor",
+        "Ministério da Educação/Universidade Federal de Santa Catarina/Pró-Reitoria",
+      ),
+      item(
+        "resultado-2",
+        "Aviso",
+        "EDITAL Nº 19, DE 26 DE OUTUBRO DE 2026",
+        "EDITAL Nº 19. CONCURSO PÚBLICO para técnico legislativo",
+        "Poder Legislativo/Câmara dos Deputados",
+      ),
+      item(
+        "homologa-3",
+        "Resultado de Concurso Público",
+        "EDITAL",
+        "Concurso público: homologação",
+        "Conselho X",
+      ),
+      item("contrato-4", "Extrato de Contrato", "EXTRATO", "Contrato de serviços", "Ministério Y"),
+    ];
+    const connector = new DouPublicoConnector(async (url) => {
+      urls.push(url);
+      if (url.includes("leiturajornal") && url.includes("secao=do3e")) return new Response(dayPage([]));
+      if (url.includes("leiturajornal")) return new Response(dayPage(list));
+      if (url.endsWith("/edital-ufsc-1"))
+        return new Response(
+          articlePage(
+            "Torna pública a abertura das inscrições do concurso público. Inscrições de 03/11/2026 a 02/12/2026.",
+          ),
+        );
+      if (url.endsWith("/resultado-2"))
+        return new Response(
+          articlePage(
+            "Torna público o resultado provisório na avaliação de saúde. 1001, Fulano de Tal / 1002, Beltrana",
+          ),
+        );
+      return new Response("", { status: 404 });
+    }, 0);
+    const docs = await connector.fetchDay("2026-10-27");
+    expect(urls[0]).toBe("https://www.in.gov.br/leiturajornal?data=27-10-2026&secao=do3");
+    // Homologação e contrato nem são abertos; o resultado é aberto, mas descartado pelo texto completo.
+    expect(urls.some((u) => u.endsWith("/homologa-3") || u.endsWith("/contrato-4"))).toBe(false);
+    expect(docs).toHaveLength(1);
+    expect(docs[0]).toMatchObject({
+      source: "dou_publico",
+      url: "https://www.in.gov.br/web/dou/-/edital-ufsc-1",
+      territoryName: "Universidade Federal de Santa Catarina",
+      sphere: "federal",
+      publishedOn: "2026-10-27",
+    });
+    expect(docs[0]?.excerpt).toContain("abertura das inscrições");
+    expect(JSON.stringify(docs)).not.toContain("Fulano");
+  });
+
+  it("DOU público: extrai o texto da matéria sem HTML e com entidades decodificadas", () => {
+    expect(parseDouArticle(articlePage("A&nbsp;Universidade &amp; o concurso<br>linha 2"))).toBe(
+      "EDITAL Nº 5\nA Universidade & o concurso\nlinha 2",
+    );
+    expect(parseDouArticle("<html>sem texto</html>")).toBe("");
   });
 });

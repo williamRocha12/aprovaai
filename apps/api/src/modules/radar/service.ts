@@ -198,7 +198,8 @@ export class RadarService {
   async processDocument(documentId: string): Promise<void> {
     const [doc] = await this.db.select().from(sourceDocuments).where(eq(sourceDocuments.id, documentId));
     if (!doc || doc.status !== "novo") return;
-    const sphere: RawDocument["sphere"] = doc.source === "dou_inlabs" ? "federal" : "municipal";
+    // Diários municipais (Querido Diário) → prefeituras; DOU → órgãos federais.
+    const sphere: RawDocument["sphere"] = doc.source === "querido_diario" ? "municipal" : "federal";
 
     const check = isExamOpeningCandidate(doc.excerpt);
     if (!check.candidate) {

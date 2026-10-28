@@ -54,6 +54,7 @@ pnpm test:e2e                        # precisa de build + Docker no ar
 pnpm db:generate                     # gera migration após mudar packages/db/src/schema
 pnpm user:set-role voce@exemplo.com admin   # promove usuário (primeiro admin)
 pnpm feature:set google_login on            # liga/desliga feature flag (painel de flags: Etapa E)
+pnpm radar:collect 14                       # coleta do radar dos últimos 14 dias (fila de Moderação → Radar)
 ```
 
 ## Convenções
@@ -176,8 +177,9 @@ Feito:
 **Etapa H — Radar de editais: coleta + fila de confirmação concluídas (2026-10-28). Alertas pendentes.**
 
 - Schema `0009`/`0010`: `source_runs`, `source_documents` (dedupe por hash), `exam_leads`; flag `radar`; uso de IA `radar_extract`.
-- Conectores em `apps/api/src/modules/radar/connectors/`: Querido Diário (API aberta, formato do código oficial) e DOU via
-  INLABS (só com `INLABS_EMAIL`/`INLABS_PASSWORD`). Filtro por palavras-chave e extração por regras em `packages/core/src/radar.ts`;
+- Conectores em `apps/api/src/modules/radar/connectors/`: Querido Diário (API aberta, formato do código oficial), DOU pela
+  leitura pública do in.gov.br (sem login; schema `0011`) e DOU via INLABS (só com `INLABS_EMAIL`/`INLABS_PASSWORD`).
+  UF inferida do nome do órgão (estado por extenso, TRTs de um estado). Carga de vários dias: `pnpm radar:collect 14`. Filtro por palavras-chave e extração por regras em `packages/core/src/radar.ts`;
   extração por IA opcional, com saneamento e checagem de evidência literal. ADR-013.
 - Cron diário enfileira `radar_collect` (dia anterior); cada documento novo vira job `radar_process_document`.
 - Moderação → Radar de editais: status das fontes, fila com evidência e link oficial; o editor confere e publica (vira concurso

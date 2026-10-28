@@ -17,7 +17,7 @@ import { id, timestamps } from "./_shared";
 import { users } from "./auth";
 import { exams, sphere } from "./catalog";
 
-export const radarSource = pgEnum("radar_source", ["querido_diario", "dou_inlabs"]);
+export const radarSource = pgEnum("radar_source", ["querido_diario", "dou_inlabs", "dou_publico"]);
 export const sourceRunStatus = pgEnum("source_run_status", ["ok", "erro", "desativado"]);
 export const sourceDocumentStatus = pgEnum("source_document_status", [
   "novo",

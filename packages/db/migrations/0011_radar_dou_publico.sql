@@ -1,0 +1,1 @@
+ALTER TYPE "public"."radar_source" ADD VALUE 'dou_publico';

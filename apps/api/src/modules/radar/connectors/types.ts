@@ -1,7 +1,7 @@
 // Contrato dos conectores do radar. Cada conector busca, para um dia, trechos de diários oficiais que
 // mencionam concurso público. `fetch` é injetado para os testes rodarem com fixtures, sem rede.
 
-export type RadarSourceId = "querido_diario" | "dou_inlabs";
+export type RadarSourceId = "querido_diario" | "dou_inlabs" | "dou_publico";
 
 export interface RawDocument {
   source: RadarSourceId;

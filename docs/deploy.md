@@ -101,6 +101,9 @@ O cron diário também enfileira a coleta do radar (publicações do dia anterio
 - `QUERIDO_DIARIO_API_URL` (opcional; o padrão é a API pública).
 - `INLABS_EMAIL` e `INLABS_PASSWORD` (opcionais): cadastro gratuito em https://inlabs.in.gov.br para ligar o DOU.
 
+Carga inicial ou depois de uma fonte voltar do ar: `pnpm radar:collect 14` (últimos 14 dias) com `DATABASE_URL`
+apontando para o banco desejado. Os concursos vão para a fila; nada é publicado sem o editor.
+
 A flag `radar` (ligada no seed) desliga tudo sem deploy. O status de cada fonte aparece em Moderação → Radar de editais,
 e o admin pode coletar um dia manualmente ali mesmo.
 

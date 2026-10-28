@@ -11,7 +11,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "user:set-role": "tsx src/cli/set-role.ts",
-    "feature:set": "tsx src/cli/set-feature.ts"
+    "feature:set": "tsx src/cli/set-feature.ts",
+    "radar:collect": "tsx src/cli/radar-collect.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
