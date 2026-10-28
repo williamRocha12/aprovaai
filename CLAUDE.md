@@ -35,7 +35,7 @@ apps/web        Next.js: src/app/(auth) público, src/app/(app) logado, src/app/
 packages/db     Drizzle: src/schema/*.ts, migrations/, seed, CLIs de migrate/seed (inclui o do build Vercel)
 packages/shared Schemas Zod e tipos usados por web E api (fonte única de validação)
 packages/core   (Etapa C) regras de negócio puras: planejador, repetição espaçada, pontuação
-apps/worker     (Etapa G) jobs chamados por rotas /api/cron/* (Vercel Cron + tabela jobs)
+(jobs)          apps/api/src/lib/jobs.ts + rota /api/cron/jobs (Vercel Cron); não há apps/worker (ADR-010)
 ```
 
 ## Comandos (PowerShell)
@@ -163,7 +163,29 @@ Feito:
   (IA) no painel. Docs: `docs/sources.md`, `docs/legal.md`.
 - Testes: core 50, API 96, shared 10, E2E 4.
 
-Próximos passos (Etapa H — radar de editais): conectores (Querido Diário, INLABS), `source_documents` com dedupe por hash,
-eventos com confiança e trecho, fila de confirmação do editor, seguir concurso, alertas por e-mail e no app.
+**Vários concursos ao mesmo tempo ("Meus concursos") — concluído (2026-10-28).**
+
+- Schema `0007`/`0008`: `user_exam_goals.status` (ativo/pausado/encerrado) substitui `is_active`; até 3 ativos
+  (`MAX_ACTIVE_GOALS`); um objetivo aberto por edital (índice único parcial). ADR-012.
+- API: `/api/goals` (listar/criar), `/api/goals/:id` (detalhe/editar), `/api/goals/:id/status`, `/api/goals/:id/plan`
+  (+ `/plan/recalculate`). Dashboard, assuntos do plano, resumo por IA e simulados aceitam `goalId` (padrão: ativo mais recente).
+- Web: página Meus concursos (cards com progresso, pausar/retomar/encerrar), barra "Estudando: X" que escolhe o concurso em
+  foco (cookie de preferência `aprovaai_goal`; a API valida o dono), onboarding avança ao clicar no concurso,
+  `/onboarding?editar=<goalId>` edita um plano.
+
+**Etapa H — Radar de editais: coleta + fila de confirmação concluídas (2026-10-28). Alertas pendentes.**
+
+- Schema `0009`/`0010`: `source_runs`, `source_documents` (dedupe por hash), `exam_leads`; flag `radar`; uso de IA `radar_extract`.
+- Conectores em `apps/api/src/modules/radar/connectors/`: Querido Diário (API aberta, formato do código oficial) e DOU via
+  INLABS (só com `INLABS_EMAIL`/`INLABS_PASSWORD`). Filtro por palavras-chave e extração por regras em `packages/core/src/radar.ts`;
+  extração por IA opcional, com saneamento e checagem de evidência literal. ADR-013.
+- Cron diário enfileira `radar_collect` (dia anterior); cada documento novo vira job `radar_process_document`.
+- Moderação → Radar de editais: status das fontes, fila com evidência e link oficial; o editor confere e publica (vira concurso
+  no catálogo, sem conteúdo programático) e depois cadastra o conteúdo pelo importador (`/concursos/importar?exame=<id>`).
+- Listas no estilo "PCI": vagas, maior salário, nº de cargos e fim das inscrições; aviso "conteúdo programático em preparação".
+- Testes: core 57, API 116 (15 do radar, conectores com fixtures, sem rede), shared 10, E2E 4.
+
+Próximos passos: alertas (seguir concurso, notificações no app e por e-mail com descadastro), conector do DOE/SC,
+validar o conector INLABS com credenciais reais; Etapa I (hardening).
 
 Pendências conhecidas: ver [docs/backlog.md](docs/backlog.md).

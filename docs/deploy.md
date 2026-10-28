@@ -94,6 +94,16 @@ Previews têm URL variável e o Google não aceita curinga no redirect: o login 
 O cron enfileira a manutenção diária (sessões expiradas, tentativas de login, rate limits, contas não verificadas há 30 dias)
 e processa a fila (incluindo provas importadas) dentro de um orçamento de 240 s.
 
+## Radar de editais
+
+O cron diário também enfileira a coleta do radar (publicações do dia anterior). Variáveis:
+
+- `QUERIDO_DIARIO_API_URL` (opcional; o padrão é a API pública).
+- `INLABS_EMAIL` e `INLABS_PASSWORD` (opcionais): cadastro gratuito em https://inlabs.in.gov.br para ligar o DOU.
+
+A flag `radar` (ligada no seed) desliga tudo sem deploy. O status de cada fonte aparece em Moderação → Radar de editais,
+e o admin pode coletar um dia manualmente ali mesmo.
+
 ## 4. Depois do primeiro deploy
 
 1. Cadastre-se no site e confirme o e-mail.

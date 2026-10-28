@@ -26,6 +26,9 @@ Um **ciclo de estudos dinâmico** por concurso-alvo:
   **revisão espaçada** (1/7/30 dias).
 - **Raio-X da banca:** provas oficiais anteriores (importadas por editores, com link da fonte) mostram o que a banca mais
   cobra; com 3+ provas, essa incidência entra na prioridade do plano.
+- **Vários concursos ao mesmo tempo:** cada um com plano, ciclo e painel próprios em "Meus concursos".
+- **Radar de editais:** coleta diária em diários oficiais (Querido Diário, DOU) e fila de conferência do editor antes de
+  publicar; a lista de concursos abertos filtra por estado e mostra vagas, salário e prazo de inscrição.
 - IA opcional (Claude): proposta de edital a partir do PDF, sugestão de assunto, explicação de questão e resumo estratégico.
   Sem chave configurada, os recursos não aparecem (nunca são simulados).
 - Sem promessa de aprovação: o foco é organização, constância e atacar o que mais derruba a nota.
@@ -99,14 +102,14 @@ em [docs/deploy.md](docs/deploy.md).
 
 ## Resultados
 
-Estado atual: **Etapas B a G concluídas** (fundação, ciclo de estudos, questões, simulados/admin/LGPD, IA, provas anteriores e Raio-X).
+Estado atual: **Etapas B a G concluídas e Etapa H em andamento** (radar de editais com fila de confirmação; alertas pendentes), além de vários concursos por usuário.
 
 - Cadastro com verificação de e-mail, login com Google, RBAC, auditoria e exportação/exclusão de dados (LGPD).
 - Motor do ciclo determinístico com justificativa por tarefa, revisão espaçada, caderno de erros, painel e simulados.
 - Provas anteriores com leitura automática (questões + gabarito), revisão humana e Raio-X da banca; fila de jobs com Vercel Cron.
-- Testes: 50 no core, 96 de integração na API (inclui isolamento entre usuários), 10 no shared e 4 E2E com Playwright.
+- Testes: 57 no core, 116 de integração na API (inclui isolamento entre usuários e conectores do radar com fixtures), 10 no shared e 4 E2E com Playwright.
 
-**Limitações conhecidas:** o radar de editais (Etapa H) e o hardening final (RLS, CSP com nonce, rate limit compartilhado,
+**Limitações conhecidas:** alertas do radar (seguir concurso, notificações) e o hardening final (RLS, CSP com nonce, rate limit compartilhado,
 Etapa I) ainda não existem. O texto de termos e privacidade é placeholder para revisão jurídica.
 Em produção: **https://aprovaai-nine.vercel.app**. O envio de e-mail (Resend) ainda não está configurado, então o cadastro
 por e-mail em produção não recebe o link de verificação (o login com Google funciona). A IA depende de `ANTHROPIC_API_KEY`.

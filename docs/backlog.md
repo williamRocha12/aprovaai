@@ -19,6 +19,10 @@ Itens conhecidos fora da etapa atual. Ao fechar um item, mova para o CLAUDE.md (
 
 ## Produto
 
+- [ ] Radar: seguir concurso + alertas (no app e por e-mail, com frequência e descadastro)
+- [ ] Radar: conector do DOE/SC (e outros estados); validar o leitor XML do INLABS com credenciais reais
+- [ ] Rateio opcional das horas semanais entre vários concursos ativos
+
 - [ ] Configurações: disponibilidade semanal padrão no perfil (campo já existe na API)
 - [ ] Promover concurso privado do usuário ao catálogo (fluxo: usuário envia para revisão → editor promove, migrando a taxonomia privada)
 - [ ] Importação de edital por CSV (hoje: JSON)

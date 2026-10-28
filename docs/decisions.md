@@ -93,3 +93,23 @@ Formato: contexto → decisão → consequência. Mais recentes no fim. ADR subs
 - **Consequência:** nada a invalidar quando o editor revisa uma questão; o número exibido é sempre o atual. Se o volume crescer,
   materializar em tabela atualizada por job sem mudar a API. A incidência só alimenta o planejador com 3+ provas da banca,
   para não supervalorizar amostra pequena.
+
+## ADR-012 — Vários concursos por usuário (2026-10-28)
+
+- **Contexto:** o usuário quer estudar mais de um concurso e acompanhar cada um separadamente.
+- **Decisão:** `user_exam_goals.status` (ativo/pausado/encerrado) no lugar de `is_active`; até 3 ativos; um objetivo aberto por
+  edital. Ciclo, tarefas, horas e data da prova são por concurso. Questões, revisões espaçadas e caderno de erros continuam por
+  usuário (acertar Português conta para todos). O concurso "em foco" nas telas é uma preferência em cookie; a API sempre
+  recebe `goalId` e valida o dono (404 para concurso de outro usuário).
+- **Consequência:** cada concurso tem sua própria disponibilidade semanal; a tela Meus concursos avisa a soma das horas. Não
+  há rateio automático de tempo entre concursos (backlog, se fizer falta).
+
+## ADR-013 — Radar de editais com confirmação humana (2026-10-28)
+
+- **Contexto:** a lista de concursos abertos precisa de dados reais, mas não podemos copiar agregadores (termos de uso,
+  ver docs/sources.md) nem mostrar dado não verificado como certo.
+- **Decisão:** conectores só para fontes oficiais/abertas (Querido Diário, DOU/INLABS). Pipeline: coleta diária → documento
+  (só trechos, dedupe por hash) → filtro por palavras-chave → extração (IA opcional, senão regras) → fila do editor. Só a
+  confirmação do editor (com declaração de que conferiu a fonte) cria o concurso no catálogo, já com situação confirmada.
+- **Consequência:** a cobertura cresce por fonte, não é instantânea como num agregador. Concursos confirmados entram sem
+  conteúdo programático; o editor completa pelo importador (IA opcional a partir do PDF).

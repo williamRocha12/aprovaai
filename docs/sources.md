@@ -22,12 +22,15 @@ aparece para usuários com a flag `past_exam_full_text` ligada; por padrão o us
 - Não mostramos data ou situação de concurso como confirmada sem fonte oficial (`situationConfirmed`/`datesConfirmed`).
 - Não calculamos "probabilidade de aprovação".
 
-## Radar de editais (Etapa H, planejado)
+## Radar de editais (implementado)
 
-Fontes previstas, sempre respeitando `robots.txt`, termos de uso e limites de requisição:
+| Fonte                                      | Como acessamos                                                                           | Situação                                                                                                                                                  |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Querido Diário** (Open Knowledge Brasil) | API pública `GET /gazettes` com busca textual do dia; guardamos só os trechos (excerpts) | Ativo por padrão. Em 2026-10-28 a API recusava conexões TLS; o radar registra o erro e tenta de novo no dia seguinte.                                     |
+| **DOU via INLABS** (Imprensa Nacional)     | Login gratuito; ZIP diário da Seção 3 em XML; só matérias com "concurso" e "edital"      | Desativado até configurar `INLABS_EMAIL`/`INLABS_PASSWORD`. O leitor do XML segue o formato público do INLABS e precisa ser validado com uma edição real. |
+| DOE/SC e demais diários estaduais          | —                                                                                        | Planejado (um conector por estado).                                                                                                                       |
+| Páginas das bancas                         | —                                                                                        | Só depois de revisar termos de uso e robots.txt de cada banca.                                                                                            |
 
-- **Querido Diário** (API pública da Open Knowledge Brasil) — diários oficiais municipais.
-- **INLABS / Imprensa Nacional** — Diário Oficial da União (exige cadastro gratuito; credenciais por variável de ambiente).
-- Páginas públicas de concursos das bancas, só quando os termos permitirem.
-
-Toda detecção do radar entra como "não confirmada" até um editor conferir na fonte oficial.
+Regras do radar: requisições identificadas (User-Agent do AprovaAI), limite de páginas por dia, nenhum login contornado,
+nenhum dado pessoal coletado. Toda detecção entra como "não confirmada" e só aparece para os usuários depois que um editor
+confere na publicação oficial (ADR-013).
