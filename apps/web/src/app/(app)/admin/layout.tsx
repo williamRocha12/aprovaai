@@ -14,6 +14,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           { href: "/admin/usuarios", label: "Usuários" },
           { href: "/admin/metricas", label: "Métricas" },
           { href: "/admin/flags", label: "Feature flags" },
+          { href: "/admin/jobs", label: "Tarefas" },
         ]}
       />
       {children}

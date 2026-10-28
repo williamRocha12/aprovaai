@@ -4,22 +4,14 @@ import { useState, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/feedback";
 import { api, errorMessage } from "@/lib/api";
+import { PdfReadError, pdfToText } from "@/lib/pdf-text";
 
-const MAX_PDF_BYTES = 40 * 1024 * 1024;
 const MAX_TEXT = 400_000;
 
 interface Proposal {
   proposal: unknown;
   warnings: string[];
   issues: string[];
-}
-
-/** Lê o PDF NO NAVEGADOR (o arquivo não é enviado): só o texto vai para a IA. */
-async function pdfToText(file: File): Promise<string> {
-  const { extractText, getDocumentProxy } = await import("unpdf");
-  const pdf = await getDocumentProxy(new Uint8Array(await file.arrayBuffer()));
-  const { text } = await extractText(pdf, { mergePages: true });
-  return text;
 }
 
 export function AiExtract({ onProposal }: { onProposal: (json: string) => void }) {
@@ -34,14 +26,6 @@ export function AiExtract({ onProposal }: { onProposal: (json: string) => void }
     const file = e.target.files?.[0];
     if (!file) return;
     setError(null);
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      setError("Envie um arquivo PDF.");
-      return;
-    }
-    if (file.size > MAX_PDF_BYTES) {
-      setError("PDF grande demais (máximo 40 MB).");
-      return;
-    }
     setReading(true);
     try {
       const extracted = await pdfToText(file);
@@ -52,8 +36,8 @@ export function AiExtract({ onProposal }: { onProposal: (json: string) => void }
       }
       setText(extracted.slice(0, MAX_TEXT));
       setFileName(file.name);
-    } catch {
-      setError("Não foi possível ler este PDF. Cole o texto do conteúdo programático abaixo.");
+    } catch (err) {
+      setError(err instanceof PdfReadError ? err.message : "Não foi possível ler este PDF.");
     } finally {
       setReading(false);
     }

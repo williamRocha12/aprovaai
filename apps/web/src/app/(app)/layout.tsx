@@ -25,6 +25,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     ...(config?.mockExamsEnabled ? [{ href: "/simulados", label: "Simulados" }] : []),
     { href: "/painel", label: "Painel" },
     { href: "/concursos", label: "Concursos" },
+    { href: "/provas", label: "Provas" },
     ...(isEditor ? [{ href: "/moderacao", label: "Moderação" }] : []),
     ...(user.role === "admin" ? [{ href: "/admin/usuarios", label: "Admin" }] : []),
     { href: "/conta", label: "Conta" },
