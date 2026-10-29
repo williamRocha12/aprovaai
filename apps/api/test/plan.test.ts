@@ -84,6 +84,34 @@ describe("catálogo", () => {
     expect((await client.get("/api/catalog/exams?open=true&uf=SC&includeNational=true")).json().total).toBe(
       1,
     );
+    expect((await client.get("/api/catalog/exams?open=true&national=true")).json().total).toBe(1);
+  });
+
+  it("conta concursos em aberto por estado; concurso privado conta só para o dono", async () => {
+    const { client: user } = await createVerifiedUser(ctx, "a@exemplo.com");
+    const { client: other } = await createVerifiedUser(ctx, "b@exemplo.com");
+    expect((await user.get("/api/catalog/open-counts")).json()).toEqual({ byUf: {}, national: 1, total: 1 });
+
+    const imported = await user.post("/api/catalog/import", {
+      data: {
+        exam: {
+          title: "Prefeitura de Teste",
+          organization: { name: "Prefeitura de Teste", sphere: "municipal", uf: "SC" },
+          sphere: "municipal",
+          uf: "SC",
+        },
+        notice: { title: "Edital 1/2026" },
+        subjects: [{ name: "Português", topics: [{ name: "Crase" }] }],
+      },
+      target: "private",
+    });
+    expect(imported.statusCode).toBe(201);
+    expect((await user.get("/api/catalog/open-counts")).json()).toEqual({
+      byUf: { SC: 1 },
+      national: 1,
+      total: 2,
+    });
+    expect((await other.get("/api/catalog/open-counts")).json().byUf).toEqual({});
   });
 
   it("usuário importa concurso próprio (privado); editor publica no catálogo", async () => {

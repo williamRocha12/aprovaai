@@ -42,6 +42,54 @@ export const BRAZIL_UFS = [
   "SE",
   "TO",
 ] as const;
+export type BrazilUf = (typeof BRAZIL_UFS)[number];
+
+export const UF_NAMES: Record<BrazilUf, string> = {
+  AC: "Acre",
+  AL: "Alagoas",
+  AP: "Amapá",
+  AM: "Amazonas",
+  BA: "Bahia",
+  CE: "Ceará",
+  DF: "Distrito Federal",
+  ES: "Espírito Santo",
+  GO: "Goiás",
+  MA: "Maranhão",
+  MT: "Mato Grosso",
+  MS: "Mato Grosso do Sul",
+  MG: "Minas Gerais",
+  PA: "Pará",
+  PB: "Paraíba",
+  PR: "Paraná",
+  PE: "Pernambuco",
+  PI: "Piauí",
+  RJ: "Rio de Janeiro",
+  RN: "Rio Grande do Norte",
+  RS: "Rio Grande do Sul",
+  RO: "Rondônia",
+  RR: "Roraima",
+  SC: "Santa Catarina",
+  SP: "São Paulo",
+  SE: "Sergipe",
+  TO: "Tocantins",
+};
+
+/** Estados agrupados por região, na ordem usada na lista de concursos. */
+export const BRAZIL_REGIONS: { name: string; ufs: BrazilUf[] }[] = [
+  { name: "Sul", ufs: ["PR", "RS", "SC"] },
+  { name: "Sudeste", ufs: ["ES", "MG", "RJ", "SP"] },
+  { name: "Centro-Oeste", ufs: ["DF", "GO", "MS", "MT"] },
+  { name: "Nordeste", ufs: ["AL", "BA", "CE", "MA", "PB", "PE", "PI", "RN", "SE"] },
+  { name: "Norte", ufs: ["AC", "AM", "AP", "PA", "RO", "RR", "TO"] },
+];
+
+/** Contagem de concursos em aberto por estado (`national` = sem UF: federais/nacionais). */
+export const openExamCountsSchema = z.object({
+  byUf: z.record(z.string(), z.number().int()),
+  national: z.number().int(),
+  total: z.number().int(),
+});
+export type OpenExamCounts = z.infer<typeof openExamCountsSchema>;
 
 export const SITUATION_LABELS: Record<(typeof EXAM_SITUATIONS)[number], string> = {
   previsto: "Previsto",
@@ -144,6 +192,8 @@ export const catalogListQuerySchema = z.object({
   open: z.stringbool().optional(),
   /** Com `uf`, inclui também concursos sem UF (federais/nacionais), que valem para qualquer estado. */
   includeNational: z.stringbool().optional(),
+  /** Somente concursos sem UF (federais/nacionais). */
+  national: z.stringbool().optional(),
   sphere: z.enum(SPHERES).optional(),
   educationLevel: z.enum(EDUCATION_LEVELS).optional(),
   page: z.coerce.number().int().min(1).default(1),

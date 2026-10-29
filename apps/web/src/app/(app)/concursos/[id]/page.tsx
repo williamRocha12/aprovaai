@@ -68,7 +68,7 @@ export default async function ExamDetailPage({
       {fromList && (
         <div className="space-y-3">
           <OnboardingSteps current={2} />
-          <Link href="/onboarding" className="text-sm text-primary hover:underline">
+          <Link href={`/onboarding?uf=${e.uf ?? "BR"}`} className="text-sm text-primary hover:underline">
             ← Voltar para a lista de concursos
           </Link>
         </div>

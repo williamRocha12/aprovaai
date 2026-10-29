@@ -5,6 +5,7 @@ import {
   examDetailSchema,
   examSummarySchema,
   noticeImportSchema,
+  openExamCountsSchema,
   paginatedSchema,
   updateExamStatusSchema,
 } from "@aprovaai/shared";
@@ -52,6 +53,15 @@ export function registerCatalogRoutes(app: FastifyInstance, db: Database): void 
       const { items, total } = await repo.list(requireUser(request), request.query);
       return { items, total, page: request.query.page, pageSize: request.query.pageSize };
     },
+  );
+
+  r.get(
+    "/api/catalog/open-counts",
+    {
+      preHandler: requireAuth,
+      schema: { tags: ["catalog"], response: { 200: openExamCountsSchema, ...errors } },
+    },
+    async (request) => repo.openCounts(requireUser(request)),
   );
 
   r.get(

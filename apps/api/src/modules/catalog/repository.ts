@@ -10,7 +10,7 @@ import {
   topics,
   type Database,
 } from "@aprovaai/db";
-import type { ExamDetail, ExamSummary, NoticeSubjectDto } from "@aprovaai/shared";
+import type { ExamDetail, ExamSummary, NoticeSubjectDto, OpenExamCounts } from "@aprovaai/shared";
 import { and, asc, count, desc, eq, ilike, inArray, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 import type { CurrentUser } from "../../plugins/auth-context";
 
@@ -21,6 +21,7 @@ export interface CatalogFilter {
   situation?: ExamSummary["situation"] | undefined;
   open?: boolean | undefined;
   includeNational?: boolean | undefined;
+  national?: boolean | undefined;
   sphere?: ExamSummary["sphere"] | undefined;
   educationLevel?: "fundamental" | "medio" | "superior" | undefined;
   page: number;
@@ -92,6 +93,7 @@ export class CatalogRepository {
           : eq(exams.uf, filter.uf),
       );
     }
+    if (filter.national) conditions.push(isNull(exams.uf));
     if (filter.board) conditions.push(eq(boards.slug, filter.board));
     if (filter.situation) conditions.push(eq(exams.situation, filter.situation));
     if (filter.open) conditions.push(ne(exams.situation, "encerrado"));
@@ -118,6 +120,22 @@ export class CatalogRepository {
         .where(where),
     ]);
     return { items: rows.map(toSummary), total: total?.value ?? 0 };
+  }
+
+  /** Concursos em aberto (situação diferente de encerrado) visíveis ao usuário, por UF. */
+  async openCounts(user: CurrentUser): Promise<OpenExamCounts> {
+    const rows = await this.db
+      .select({ uf: exams.uf, value: count() })
+      .from(exams)
+      .where(and(examVisibility(user), ne(exams.situation, "encerrado")))
+      .groupBy(exams.uf);
+    const byUf: Record<string, number> = {};
+    let national = 0;
+    for (const row of rows) {
+      if (row.uf) byUf[row.uf] = row.value;
+      else national = row.value;
+    }
+    return { byUf, national, total: rows.reduce((sum, row) => sum + row.value, 0) };
   }
 
   async listBoards(): Promise<{ slug: string; name: string }[]> {
