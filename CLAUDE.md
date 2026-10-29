@@ -173,6 +173,9 @@ Feito:
 - Web: página Meus concursos (cards com progresso, pausar/retomar/encerrar), barra "Estudando: X" que escolhe o concurso em
   foco (cookie de preferência `aprovaai_goal`; a API valida o dono), onboarding avança ao clicar no concurso,
   `/onboarding?editar=<goalId>` edita um plano.
+- Lista no modelo do PCI Concursos (2026-10-29): estados por região com o nº de concursos em aberto
+  (`GET /api/catalog/open-counts`), clique no estado lista os concursos (`/onboarding?uf=SC`; `uf=BR` = só nacionais,
+  filtro `national=true`) → página do edital → montar plano.
 
 **Etapa H — Radar de editais: coleta + fila de confirmação concluídas (2026-10-28). Alertas pendentes.**
 
