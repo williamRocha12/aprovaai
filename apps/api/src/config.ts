@@ -40,7 +40,7 @@ const configSchema = z
     /** Segredo do Vercel Cron (header Authorization: Bearer). Sem ele, a rota de cron não existe. */
     CRON_SECRET: z.string().min(16).optional(),
     // Radar de editais: API aberta do Querido Diário e login gratuito do INLABS (DOU, opcional).
-    QUERIDO_DIARIO_API_URL: z.url().default("https://api.queridodiario.ok.org.br"),
+    QUERIDO_DIARIO_API_URL: z.url().default("https://api.queridodiario.org.br"),
     INLABS_EMAIL: z.string().optional(),
     INLABS_PASSWORD: z.string().optional(),
 

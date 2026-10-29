@@ -30,7 +30,7 @@ async function main(): Promise<void> {
   const service = new RadarService(
     db,
     [
-      new QueridoDiarioConnector(process.env.QUERIDO_DIARIO_API_URL ?? "https://api.queridodiario.ok.org.br"),
+      new QueridoDiarioConnector(process.env.QUERIDO_DIARIO_API_URL ?? "https://api.queridodiario.org.br"),
       new DouPublicoConnector(),
       new DouInlabsConnector(process.env.INLABS_EMAIL, process.env.INLABS_PASSWORD),
     ],
